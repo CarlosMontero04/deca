@@ -100,7 +100,7 @@ export default function EmitirDeca() {
         digitalSignature: `SHA256-DIGITAL-SIGNATURE-${decaId}-${Date.now()}`,
         fileSizeBytes: 0,
         legalRetentionExpiresDate: new Date(Date.now() + 31536000000).toISOString(),
-        qrUrl: `https://deca-digital.vercel.app/verificar/${decaId}`
+        qrUrl: `https://deca-deca8.vercel.app/verificar/${decaId}`
       };
 
       const verificationUrl = `https://deca-digital.vercel.app/verificar/${decaId}`;
