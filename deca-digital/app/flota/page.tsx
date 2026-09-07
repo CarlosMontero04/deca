@@ -14,6 +14,7 @@ export default function FlotaPanel() {
   const [tab, setTab] = useState<Tab>('transportistas');
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const [carriers, setCarriers] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -128,6 +129,11 @@ export default function FlotaPanel() {
 
   const carrierName = (carrierId: string | null) => carriers.find(c => c.id === carrierId)?.company_name || '—';
 
+  const q = search.trim().toLowerCase();
+  const filteredCarriers = carriers.filter(c => !q || c.company_name?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q));
+  const filteredDrivers = drivers.filter(d => !q || d.name?.toLowerCase().includes(q) || d.dni?.toLowerCase().includes(q));
+  const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q) || t.trailer_plate?.toLowerCase().includes(q));
+
   if (loading) return <div className="p-10 text-center">Cargando panel de flota...</div>;
 
   return (
@@ -142,16 +148,25 @@ export default function FlotaPanel() {
           <p className="text-sm text-slate-500 mt-1">Guarda tus transportistas, conductores y tractoras habituales para rellenar los DeCA más rápido.</p>
         </div>
 
-        <div className="flex gap-2 mb-6">
-          {(['transportistas', 'conductores', 'tractoras'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); resetForms(); }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="flex gap-2">
+            {(['transportistas', 'conductores', 'tractoras'] as Tab[]).map(t => (
+              <button
+                key={t}
+                onClick={() => { setTab(t); resetForms(); setSearch(''); }}
+                className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={tab === 'transportistas' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : 'Buscar por matrícula...'}
+            className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
+          />
         </div>
 
         {/* TRANSPORTISTAS */}
@@ -174,8 +189,8 @@ export default function FlotaPanel() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Empresa</th><th className="p-3">CIF</th><th className="p-3">Teléfono</th><th className="p-3 text-right">Acciones</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">
-                  {carriers.map(c => (
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredCarriers.map(c => (
                     <tr key={c.id}>
                       <td className="p-3 font-semibold">{c.company_name}</td>
                       <td className="p-3">{c.cif}</td>
@@ -186,7 +201,7 @@ export default function FlotaPanel() {
                       </td>
                     </tr>
                   ))}
-                  {carriers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">Sin transportistas guardados</td></tr>}
+                  {filteredCarriers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{carriers.length === 0 ? 'Sin transportistas guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -217,8 +232,8 @@ export default function FlotaPanel() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Nombre</th><th className="p-3">DNI</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">
-                  {drivers.map(d => (
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredDrivers.map(d => (
                     <tr key={d.id}>
                       <td className="p-3 font-semibold">{d.name}</td>
                       <td className="p-3">{d.dni}</td>
@@ -229,7 +244,7 @@ export default function FlotaPanel() {
                       </td>
                     </tr>
                   ))}
-                  {drivers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">Sin conductores guardados</td></tr>}
+                  {filteredDrivers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{drivers.length === 0 ? 'Sin conductores guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -258,8 +273,8 @@ export default function FlotaPanel() {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula Tractora</th><th className="p-3">Remolque</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">
-                  {tractors.map(t => (
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredTractors.map(t => (
                     <tr key={t.id}>
                       <td className="p-3 font-semibold">{t.tractor_plate}</td>
                       <td className="p-3">{t.trailer_plate || '—'}</td>
@@ -270,7 +285,7 @@ export default function FlotaPanel() {
                       </td>
                     </tr>
                   ))}
-                  {tractors.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">Sin tractoras guardadas</td></tr>}
+                  {filteredTractors.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{tractors.length === 0 ? 'Sin tractoras guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
