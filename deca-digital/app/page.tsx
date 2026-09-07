@@ -49,14 +49,19 @@ export default function Dashboard() {
   const handleDownloadPdf = async (doc: any) => {
     try {
       setDownloadingId(doc.id);
-      
+
+      // Documento real ya almacenado en el repositorio: lo descargamos tal cual,
+      // sin regenerarlo, para que sea exactamente el mismo fichero que vería un inspector.
       if (doc.pdf_storage_path) {
         const { data: publicUrlData } = supabase.storage
           .from('decas-pdf')
           .getPublicUrl(doc.pdf_storage_path);
-        
+
+        // Añadimos ?v=version para que cada versión sea, a efectos de caché del
+        // navegador/CDN, una URL distinta — si no, tras modificar podrías seguir
+        // viendo la versión antigua durante un rato aunque el archivo ya cambió.
         const a = document.createElement('a');
-        a.href = publicUrlData.publicUrl;
+        a.href = `${publicUrlData.publicUrl}?v=${doc.version}`;
         a.download = `${doc.id}_v${doc.version}.pdf`;
         document.body.appendChild(a);
         a.click();
@@ -64,8 +69,9 @@ export default function Dashboard() {
         return;
       }
 
-      const verificationUrl = doc.qr_url || `https://deca-ochre.vercel.app/verificar/${doc.id}`;  
-
+      // Reserva de compatibilidad: documentos antiguos sin fichero almacenado.
+      const verificationUrl = doc.qr_url || `https://deca-ochre.vercel.app/verificar/${doc.id}`;
+      
       const decaData = {
         id: doc.id,
         version: doc.version,
@@ -80,7 +86,7 @@ export default function Dashboard() {
         fileSizeBytes: doc.file_size_bytes || 0,
         legalRetentionExpiresDate: doc.legal_retention_expires_date || '',
         qrUrl: verificationUrl,
-       observations: doc.observations || ''
+        observations: doc.observations || ''
       };
 
       const { blob } = await generateDecaPdf(decaData, verificationUrl);
@@ -144,8 +150,7 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-slate-800">Documentos Activos</h2>
             <p className="text-sm text-slate-500">Panel de gestión y control en tiempo real</p>
           </div>
-          
-          <button
+          <button 
             onClick={() => router.push('/emitir')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
           >

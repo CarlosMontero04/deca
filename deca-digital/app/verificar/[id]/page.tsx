@@ -19,9 +19,10 @@ export default function VerificarPage() {
       if (!id) return;
 
       try {
-        // 1. Buscamos los datos del DeCA en la base de datos de Supabase
+        // 1. Buscamos los datos del DeCA mediante la función segura (nunca acceso directo a la tabla)
         const { data: decaRows, error: dbError } = await supabase
-        .rpc('get_deca_for_verification', { p_id: id });
+          .rpc('get_deca_for_verification', { p_id: id });
+
         const deca = decaRows?.[0];
 
         if (dbError || !deca) {
@@ -29,14 +30,16 @@ export default function VerificarPage() {
           return;
         }
 
-        // 2. Formateamos los datos estructurados para nuestro generador
+        // 2. Documento nativo digital real: descargamos el PDF tal como quedó
+        //    almacenado en el repositorio en el momento de su emisión/modificación
+        //    (no lo regeneramos al vuelo, para que la fecha del fichero sea la real).
         if (deca.pdf_storage_path) {
           const { data: publicUrlData } = supabase.storage
             .from('decas-pdf')
             .getPublicUrl(deca.pdf_storage_path);
-          
+
           const a = document.createElement('a');
-          a.href = publicUrlData.publicUrl;
+          a.href = `${publicUrlData.publicUrl}?v=${deca.version}`;
           a.download = `${deca.id}_Documento_Control.pdf`;
           document.body.appendChild(a);
           a.click();
@@ -45,9 +48,8 @@ export default function VerificarPage() {
           return;
         }
 
-
-
-
+        // Reserva de compatibilidad: documentos antiguos emitidos antes de que
+        // existiera el repositorio de Storage. Se regenera al vuelo como antes.
         const decaData = {
           id: deca.id,
           version: deca.version,
@@ -64,11 +66,7 @@ export default function VerificarPage() {
           qrUrl: deca.qr_url || window.location.href,
           observations: deca.observations || ''
         };
-
-        // 3. Generamos el PDF oficial al instante
         const { blob } = await generateDecaPdf(decaData, decaData.qrUrl);
-        
-        // 4. FORZAR DESCARGA AUTOMÁTICA
         const pdfUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = pdfUrl;
@@ -76,8 +74,6 @@ export default function VerificarPage() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        
-        // Limpiamos la memoria y marcamos como completado
         setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
         setDownloaded(true);
 

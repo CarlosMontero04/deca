@@ -23,6 +23,7 @@ export default function ModificarDeca() {
   const [trailerPlate, setTrailerPlate] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverDni, setDriverDni] = useState('');
+  const [phone, setPhone] = useState('');
   const [transportDate, setTransportDate] = useState('');
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
@@ -38,6 +39,12 @@ export default function ModificarDeca() {
   const [motivo, setMotivo] = useState('CAMBIO_VEHICULO');
   const [detalle, setDetalle] = useState('');
 
+  // Tras guardar con éxito, guardamos aquí lo necesario para notificar al conductor
+  // mediante un clic explícito (ver por qué en notifyDriver.ts)
+  const [updatedInfo, setUpdatedInfo] = useState<{
+    id: string; version: number; verificationUrl: string; phone: string; email?: string; method: NotificationMethod; motivo: string;
+  } | null>(null);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -49,6 +56,7 @@ export default function ModificarDeca() {
         setTrailerPlate(data.carrier?.trailerPlate || '');
         setDriverName(data.carrier?.driverName || '');
         setDriverDni(data.carrier?.driverDni || '');
+        setPhone(data.carrier?.phone || '');
         setDriverEmail(data.carrier?.driverEmail || '');
         setTransportDate(data.route?.plannedStartDate ? new Date(data.route.plannedStartDate).toISOString().slice(0, 10) : '');
         setOrigin(data.route?.originMain || '');
@@ -72,6 +80,7 @@ export default function ModificarDeca() {
       trailerPlate: deca.carrier?.trailerPlate || '',
       driverName: deca.carrier?.driverName || '',
       driverDni: deca.carrier?.driverDni || '',
+      phone: deca.carrier?.phone || '',
       transportDate: deca.route?.plannedStartDate ? new Date(deca.route.plannedStartDate).toISOString().slice(0, 10) : '',
       origin: deca.route?.originMain || '',
       destination: deca.route?.destinationMain || '',
@@ -85,6 +94,7 @@ export default function ModificarDeca() {
       { field: 'trailerPlate', label: 'Matrícula Remolque', previousValue: original.trailerPlate, newValue: trailerPlate },
       { field: 'driverName', label: 'Nombre Conductor', previousValue: original.driverName, newValue: driverName },
       { field: 'driverDni', label: 'DNI Conductor', previousValue: original.driverDni, newValue: driverDni },
+      { field: 'phone', label: 'Teléfono de Contacto', previousValue: original.phone, newValue: phone },
       { field: 'transportDate', label: 'Fecha de Realización del Transporte', previousValue: original.transportDate, newValue: transportDate },
       { field: 'origin', label: 'Lugar de Origen', previousValue: original.origin, newValue: origin },
       { field: 'destination', label: 'Lugar de Destino', previousValue: original.destination, newValue: destination },
@@ -141,6 +151,7 @@ export default function ModificarDeca() {
         trailerPlate,
         driverName,
         driverDni,
+        phone,
         driverEmail: driverEmail || undefined,
       };
       const nuevoRoute = {
@@ -180,7 +191,7 @@ export default function ModificarDeca() {
       if (deca.pdf_storage_path) {
         const { error: uploadError } = await supabase.storage
           .from('decas-pdf')
-          .upload(deca.pdf_storage_path, blob, { contentType: 'application/pdf', upsert: true });
+          .upload(deca.pdf_storage_path, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
         if (uploadError) throw uploadError;
       }
 
@@ -200,18 +211,19 @@ export default function ModificarDeca() {
 
       if (dbError) throw dbError;
 
-      // Avisamos al conductor de la versión actualizada, por el canal elegido.
-      // Esto abre WhatsApp o el cliente de correo con el mensaje listo; quien
-      // gestiona el DeCA es quien pulsa "Enviar" en la app externa.
-      notifyDriver(
-        notifyMethod,
-        nuevoCarrier.phone,
-        nuevoCarrier.driverEmail,
-        `Se ha actualizado tu Documento de Control (DeCA) ${deca.id} a la versión v${nuevaVersion}.0. Motivo: ${motivo}.`,
-        deca.qr_url
-      );
-
-      router.push('/');
+      // No notificamos aquí automáticamente: los navegadores bloquean en silencio
+      // los window.open()/mailto disparados después de un await (como este update).
+      // Guardamos lo necesario y mostramos un botón explícito en pantalla.
+      setUpdatedInfo({
+        id: deca.id,
+        version: nuevaVersion,
+        verificationUrl: deca.qr_url,
+        phone: nuevoCarrier.phone,
+        email: nuevoCarrier.driverEmail,
+        method: notifyMethod,
+        motivo
+      });
+      setSaving(false);
 
     } catch (err) {
       console.error(err);
@@ -249,6 +261,30 @@ export default function ModificarDeca() {
           </div>
         )}
 
+        {updatedInfo ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
+            <div className="text-emerald-600 text-lg font-bold">✅ DeCA {updatedInfo.id} actualizado a v{updatedInfo.version}.0</div>
+            <p className="text-sm text-slate-500">
+              El conductor debe recibir la versión actualizada antes de continuar el servicio. Pulsa el botón para abrir {updatedInfo.method === 'telefono' ? 'WhatsApp' : 'tu cliente de correo'} con el mensaje ya preparado.
+            </p>
+            <button
+              type="button"
+              onClick={() => notifyDriver(updatedInfo.method, updatedInfo.phone, updatedInfo.email,
+                `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`,
+                updatedInfo.verificationUrl)}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition"
+            >
+              Notificar al conductor {updatedInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl transition"
+            >
+              Ir al Tablero
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleUpdate} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
           <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3 text-amber-800 text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -271,6 +307,10 @@ export default function ModificarDeca() {
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">DNI Conductor</label>
               <input type="text" value={driverDni} onChange={e => setDriverDni(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto</label>
+              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Realización del Transporte</label>
@@ -352,6 +392,7 @@ export default function ModificarDeca() {
             {saving ? 'Guardando...' : 'Guardar Modificación'}
           </button>
         </form>
+        )}
       </div>
     </div>
   );

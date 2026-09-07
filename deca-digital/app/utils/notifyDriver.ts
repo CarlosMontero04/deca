@@ -2,6 +2,11 @@
 // ya preparados, para que quien emite/modifica el DeCA solo tenga que pulsar "Enviar".
 // No enviamos nada automáticamente en nombre de nadie: la persona sigue confirmando
 // el envío en la app externa (WhatsApp / correo) que se abre.
+//
+// IMPORTANTE: llamar a esta función SIEMPRE desde un manejador de clic directo
+// (onClick de un botón), nunca automáticamente después de un `await` (como tras
+// guardar en Supabase). Los navegadores bloquean silenciosamente los window.open()
+// que no vienen de una interacción del usuario justo en ese instante.
 
 export type NotificationMethod = 'telefono' | 'email';
 
@@ -28,7 +33,12 @@ export function notifyDriver(
     if (!email) return false;
     const subject = encodeURIComponent('Tu Documento de Control (DeCA)');
     const body = encodeURIComponent(fullMessage);
-    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
+    // location.href en vez de window.open: los navegadores bloquean con frecuencia
+    // los window.open() disparados después de operaciones async (como guardar en
+    // Supabase), tratándolos como popups no solicitados. mailto vía location.href
+    // no navega realmente fuera de la página — el sistema operativo intercepta el
+    // enlace y abre el cliente de correo — y no lo bloquea ningún popup-blocker.
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
     return true;
   }
 

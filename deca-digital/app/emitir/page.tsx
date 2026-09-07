@@ -29,6 +29,7 @@ export default function EmitirDeca() {
   const [driverName, setDriverName] = useState('');
   const [driverDni, setDriverDni] = useState('');
   const [driverEmail, setDriverEmail] = useState('');
+  const [carrierPhone, setCarrierPhone] = useState('');
   const [notifyMethod, setNotifyMethod] = useState<NotificationMethod>('telefono');
 
   // Bloque C: Origen y Destino
@@ -49,6 +50,12 @@ export default function EmitirDeca() {
 
   // Bloque G: Observaciones
   const [observations, setObservations] = useState('');
+
+  // Tras guardar con éxito, guardamos aquí lo necesario para notificar al conductor
+  // mediante un clic explícito (ver por qué en notifyDriver.ts)
+  const [createdInfo, setCreatedInfo] = useState<{
+    id: string; verificationUrl: string; phone: string; email?: string; method: NotificationMethod;
+  } | null>(null);
 
   const supabase = createClient();
 
@@ -82,7 +89,7 @@ export default function EmitirDeca() {
           driverEmail: driverEmail || undefined,
           tractorPlate: tractorPlate,
           trailerPlate: trailerPlate,
-          phone: '600000000',
+          phone: carrierPhone,
         },
         contractualShipper: {
           companyName: shipperName,
@@ -130,7 +137,7 @@ export default function EmitirDeca() {
       const pdfStoragePath = `${userId}/${decaId}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('decas-pdf')
-        .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true });
+        .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
 
       if (uploadError) throw uploadError;
 
@@ -154,16 +161,17 @@ export default function EmitirDeca() {
 
       if (dbError) throw dbError;
 
-      // El conductor debe disponer del DeCA antes del inicio del servicio (apartado Séptimo)
-      notifyDriver(
-        notifyMethod,
-        newDeca.carrier.phone,
-        newDeca.carrier.driverEmail,
-        `Aquí tienes tu Documento de Control (DeCA) ${newDeca.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
-        verificationUrl
-      );
-
-      router.push('/');
+      // No notificamos aquí automáticamente: los navegadores bloquean en silencio
+      // los window.open()/mailto disparados después de un await (como este insert).
+      // Guardamos lo necesario y mostramos un botón explícito en pantalla.
+      setCreatedInfo({
+        id: newDeca.id,
+        verificationUrl,
+        phone: newDeca.carrier.phone,
+        email: newDeca.carrier.driverEmail,
+        method: notifyMethod
+      });
+      setLoading(false);
 
     } catch (err: any) {
       setError(err.message);
@@ -199,6 +207,30 @@ export default function EmitirDeca() {
           </div>
         )}
 
+        {createdInfo ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
+            <div className="text-emerald-600 text-lg font-bold">✅ DeCA {createdInfo.id} emitido correctamente</div>
+            <p className="text-sm text-slate-500">
+              El conductor debe disponer de este documento antes de iniciar el servicio. Pulsa el botón para abrir {createdInfo.method === 'telefono' ? 'WhatsApp' : 'tu cliente de correo'} con el mensaje ya preparado.
+            </p>
+            <button
+              type="button"
+              onClick={() => notifyDriver(createdInfo.method, createdInfo.phone, createdInfo.email,
+                `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
+                createdInfo.verificationUrl)}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition"
+            >
+              Notificar al conductor {createdInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl transition"
+            >
+              Ir al Tablero
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           
           {/* BLOQUE A: Cargador Contractual */}
@@ -245,6 +277,10 @@ export default function EmitirDeca() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">DNI Conductor</label>
                 <input type="text" required value={driverDni} onChange={e => setDriverDni(e.target.value)} placeholder="Ej. 24060486-D" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto</label>
+                <input type="tel" required value={carrierPhone} onChange={e => setCarrierPhone(e.target.value)} placeholder="Ej. 600123456" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
             </div>
 
@@ -346,6 +382,7 @@ export default function EmitirDeca() {
             {loading ? 'Generando Documento...' : 'Emitir y Guardar DeCA Oficial'}
           </button>
         </form>
+        )}
       </div>
     </div>
   );
