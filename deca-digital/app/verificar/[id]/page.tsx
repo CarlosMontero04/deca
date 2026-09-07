@@ -20,11 +20,9 @@ export default function VerificarPage() {
 
       try {
         // 1. Buscamos los datos del DeCA en la base de datos de Supabase
-        const { data: deca, error: dbError } = await supabase
-          .from('decas')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const { data: decaRows, error: dbError } = await supabase
+        .rpc('get_deca_for_verification', { p_id: id });
+        const deca = decaRows?.[0];
 
         if (dbError || !deca) {
           setError(true);
