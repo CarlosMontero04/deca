@@ -30,6 +30,10 @@ export default function ModificarDeca() {
   const [goodsDescription, setGoodsDescription] = useState('');
   const [grossWeight, setGrossWeight] = useState('');
   const [observationsField, setObservationsField] = useState('');
+  const [stopsText, setStopsText] = useState('');
+
+  // Título interno: no se trackea en el historial (es solo tu referencia, no un dato legal)
+  const [internalTitle, setInternalTitle] = useState('');
 
   // Contacto del conductor: no se trackea en el historial, solo sirve para avisarle
   const [driverEmail, setDriverEmail] = useState('');
@@ -64,6 +68,8 @@ export default function ModificarDeca() {
         setGoodsDescription(data.shipments?.[0]?.goodsDescription || '');
         setGrossWeight(String(data.shipments?.[0]?.grossWeightKg ?? ''));
         setObservationsField(data.observations || '');
+        setStopsText((data.stops || []).join('\n'));
+        setInternalTitle(data.internal_title || '');
       }
       setLoading(false);
     };
@@ -88,6 +94,7 @@ export default function ModificarDeca() {
       grossWeight: String(deca.shipments?.[0]?.grossWeightKg ?? ''),
       observations: deca.observations || ''
     };
+    const originalStopsText = (deca.stops || []).join('\n');
 
     const candidatos = [
       { field: 'tractorPlate', label: 'Matrícula Tractora', previousValue: original.tractorPlate, newValue: tractorPlate },
@@ -101,6 +108,7 @@ export default function ModificarDeca() {
       { field: 'goodsDescription', label: 'Naturaleza de la Mercancía', previousValue: original.goodsDescription, newValue: goodsDescription },
       { field: 'grossWeight', label: 'Peso Bruto (Kg)', previousValue: original.grossWeight, newValue: grossWeight },
       { field: 'observations', label: 'Observaciones', previousValue: original.observations, newValue: observationsField },
+      { field: 'stops', label: 'Paradas Intermedias', previousValue: originalStopsText, newValue: stopsText },
     ];
 
     const cambios = candidatos.filter(c => c.previousValue !== c.newValue);
@@ -180,7 +188,8 @@ export default function ModificarDeca() {
         fileSizeBytes: deca.file_size_bytes || 0,
         legalRetentionExpiresDate: deca.legal_retention_expires_date || '',
         qrUrl: deca.qr_url,
-        observations: observationsField
+        observations: observationsField,
+        stops: stopsText.split('\n').map(s => s.trim()).filter(Boolean)
       };
 
       // Regeneramos el PDF con todos los datos actualizados y el historial completo
@@ -205,7 +214,9 @@ export default function ModificarDeca() {
           carrier: nuevoCarrier,
           route: nuevoRoute,
           shipments: nuevosShipments,
-          observations: observationsField
+          observations: observationsField,
+          stops: decaData.stops,
+          internal_title: internalTitle || null
         })
         .eq('id', id);
 
@@ -291,6 +302,11 @@ export default function ModificarDeca() {
             <p>Al guardar, el documento pasará a la <strong>versión v{deca.version + 1}.0</strong>. El código QR seguirá siendo el mismo.</p>
           </div>
 
+          <div className="bg-slate-100 rounded-xl border border-slate-200 p-4">
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Título Interno (opcional, solo para tu referencia — no cuenta como modificación del documento)</label>
+            <input type="text" value={internalTitle} onChange={e => setInternalTitle(e.target.value)} placeholder="Ej. Envío Mercadona semana 36" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Tractora</label>
@@ -335,6 +351,10 @@ export default function ModificarDeca() {
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
               <textarea value={observationsField} onChange={e => setObservationsField(e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Paradas Intermedias (una por línea)</label>
+              <textarea value={stopsText} onChange={e => setStopsText(e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
           </div>
 

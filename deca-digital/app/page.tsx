@@ -86,7 +86,8 @@ export default function Dashboard() {
         fileSizeBytes: doc.file_size_bytes || 0,
         legalRetentionExpiresDate: doc.legal_retention_expires_date || '',
         qrUrl: verificationUrl,
-        observations: doc.observations || ''
+        observations: doc.observations || '',
+        stops: doc.stops || []
       };
 
       const { blob } = await generateDecaPdf(decaData, verificationUrl);
@@ -103,6 +104,17 @@ export default function Dashboard() {
       alert("Hubo un error al generar el PDF.");
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleStatusChange = async (docId: string, newStatus: string) => {
+    // Cambio de estado puramente interno: no genera nueva versión, no regenera
+    // el PDF ni notifica al conductor — es solo para tu gestión en el panel.
+    setDecas(prev => prev.map(d => d.id === docId ? { ...d, status: newStatus } : d));
+    const { error } = await supabase.from('decas').update({ status: newStatus }).eq('id', docId);
+    if (error) {
+      console.error(error);
+      alert('No se pudo actualizar el estado.');
     }
   };
 
@@ -177,19 +189,38 @@ export default function Dashboard() {
                     <th className="p-4">Transportista</th>
                     <th className="p-4">Ruta</th>
                     <th className="p-4">Versión</th>
+                    <th className="p-4">Estado</th>
                     <th className="p-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {decas.map((doc) => (
                     <tr key={doc.id} className="hover:bg-slate-50">
-                      <td className="p-4 font-mono font-bold text-blue-900">{doc.id}</td>
+                      <td className="p-4 font-mono font-bold text-blue-900">
+                        {doc.id}
+                        {doc.internal_title && (
+                          <div className="font-sans font-normal text-xs text-slate-400 mt-0.5">{doc.internal_title}</div>
+                        )}
+                      </td>
                       <td className="p-4">{doc.carrier?.companyName || 'Sin asignar'}</td>
                       <td className="p-4">{doc.route?.originMain} → {doc.route?.destinationMain}</td>
                       <td className="p-4">
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded text-xs font-bold border border-slate-200">
                           v{doc.version}.0
                         </span>
+                      </td>
+                      <td className="p-4">
+                        <select
+                          value={doc.status}
+                          onChange={e => handleStatusChange(doc.id, e.target.value)}
+                          className="bg-white border border-slate-200 rounded-lg text-xs font-semibold px-2 py-1.5 text-slate-700"
+                        >
+                          <option value="BORRADOR">Borrador</option>
+                          <option value="EN_TRANSITO">En Tránsito</option>
+                          <option value="ENTREGADO">Entregado</option>
+                          <option value="MODIFICADO_EN_RUTA">Modificado en Ruta</option>
+                          <option value="CANCELADO">Cancelado</option>
+                        </select>
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex justify-end gap-2">

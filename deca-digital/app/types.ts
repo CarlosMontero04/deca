@@ -62,5 +62,7 @@ export interface DecaDocument {
   legalRetentionExpiresDate: string;
   qrUrl: string;
   observations?: string;
+  internalTitle?: string;
+  stops?: string[];
   assignedUserId?: string;
 }

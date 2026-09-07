@@ -51,6 +51,12 @@ export default function EmitirDeca() {
   // Bloque G: Observaciones
   const [observations, setObservations] = useState('');
 
+  // Solo para tu gestión interna — no forma parte del documento legal
+  const [internalTitle, setInternalTitle] = useState('');
+
+  // Paradas intermedias (opcional, una por línea)
+  const [stopsText, setStopsText] = useState('');
+
   // Tras guardar con éxito, guardamos aquí lo necesario para notificar al conductor
   // mediante un clic explícito (ver por qué en notifyDriver.ts)
   const [createdInfo, setCreatedInfo] = useState<{
@@ -126,6 +132,8 @@ export default function EmitirDeca() {
         fileSizeBytes: 0,
         legalRetentionExpiresDate: new Date(Date.now() + 31536000000).toISOString(),
         observations: observations,
+        internalTitle: internalTitle || undefined,
+        stops: stopsText.split('\n').map(s => s.trim()).filter(Boolean),
         qrUrl: verificationUrl
       };
 
@@ -155,6 +163,8 @@ export default function EmitirDeca() {
           qr_url: newDeca.qrUrl,
           pdf_storage_path: pdfStoragePath,
           observations: newDeca.observations || null,
+          internal_title: newDeca.internalTitle || null,
+          stops: newDeca.stops || [],
           user_id: userId
         }
       ]);
@@ -207,8 +217,7 @@ export default function EmitirDeca() {
           </div>
         )}
 
-        {createdInfo ? (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
+        {createdInfo ? (          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
             <div className="text-emerald-600 text-lg font-bold">✅ DeCA {createdInfo.id} emitido correctamente</div>
             <p className="text-sm text-slate-500">
               El conductor debe disponer de este documento antes de iniciar el servicio. Pulsa el botón para abrir {createdInfo.method === 'telefono' ? 'WhatsApp' : 'tu cliente de correo'} con el mensaje ya preparado.
@@ -232,7 +241,13 @@ export default function EmitirDeca() {
           </div>
         ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          
+
+          {/* Título interno: solo para tu gestión, no forma parte del documento legal */}
+          <div className="bg-slate-100 rounded-2xl border border-slate-200 p-4">
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Título Interno (opcional, solo para tu referencia — no aparece en el PDF)</label>
+            <input type="text" value={internalTitle} onChange={e => setInternalTitle(e.target.value)} placeholder="Ej. Envío Mercadona semana 36" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+          </div>
+
           {/* BLOQUE A: Cargador Contractual */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">A. Cargador Contractual</h3>
@@ -316,6 +331,10 @@ export default function EmitirDeca() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Destino</label>
                 <input type="text" required value={destination} onChange={e => setDestination(e.target.value)} placeholder="Ej. CLICOIN, 30-100 ESPINARDO (MURCIA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Paradas Intermedias (opcional, una por línea)</label>
+                <textarea value={stopsText} onChange={e => setStopsText(e.target.value)} rows={2} placeholder={"Ej.\nÁrea de servicio Despeñaperros\nAlmacén de tránsito Bailén"} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 placeholder:text-slate-400" />
               </div>
             </div>
           </div>

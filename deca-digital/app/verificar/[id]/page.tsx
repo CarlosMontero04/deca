@@ -64,7 +64,8 @@ export default function VerificarPage() {
           fileSizeBytes: deca.file_size_bytes || 0,
           legalRetentionExpiresDate: deca.legal_retention_expires_date || '',
           qrUrl: deca.qr_url || window.location.href,
-          observations: deca.observations || ''
+          observations: deca.observations || '',
+          stops: deca.stops || []
         };
         const { blob } = await generateDecaPdf(decaData, decaData.qrUrl);
         const pdfUrl = URL.createObjectURL(blob);

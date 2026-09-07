@@ -74,6 +74,10 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   y += 4;
   doc.text(`Origen Principal: ${deca.route.originMain} | Destino Principal: ${deca.route.destinationMain}`, margin, y);
   y += 4;
+  if (deca.stops && deca.stops.length > 0) {
+    doc.text(`Paradas Intermedias: ${deca.stops.join(' → ')}`, margin, y);
+    y += 4;
+  }
   doc.setFont('helvetica', 'bold');
   doc.text(`Fecha de Realización del Transporte: ${new Date(deca.route.plannedStartDate).toLocaleDateString()}`, margin, y);
   doc.setFont('helvetica', 'normal');
