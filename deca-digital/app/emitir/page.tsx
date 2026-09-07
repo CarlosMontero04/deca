@@ -6,6 +6,7 @@ import { FileText, ArrowLeft, Save, Truck } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 import { DecaDocument } from '../types';
+const APP_URL = 'https://deca-ochre.vercel.app';
 
 export default function EmitirDeca() {
   const router = useRouter();
@@ -50,7 +51,14 @@ export default function EmitirDeca() {
     try {
       const decaId = `DECA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const now = new Date().toISOString();
+      // Necesitamos el usuario ANTES de generar el PDF para poder subirlo a su carpeta en Storage
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('No hay sesión activa.');
+      const verificationUrl = `${APP_URL}/verificar/${decaId}`;
 
+
+      
       const newDeca: DecaDocument = {
         id: decaId,
         version: 1,
@@ -100,15 +108,17 @@ export default function EmitirDeca() {
         digitalSignature: `SHA256-DIGITAL-SIGNATURE-${decaId}-${Date.now()}`,
         fileSizeBytes: 0,
         legalRetentionExpiresDate: new Date(Date.now() + 31536000000).toISOString(),
-        qrUrl: `https://deca-deca8.vercel.app/verificar/${decaId}`
+        qrUrl: verificationUrl
       };
 
-      const verificationUrl = `https://deca-digital.vercel.app/verificar/${decaId}`;
-      const { sizeBytes } = await generateDecaPdf(newDeca, verificationUrl);
+      const { blob, sizeBytes } = await generateDecaPdf(newDeca, verificationUrl);
       newDeca.fileSizeBytes = sizeBytes;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
+      const pdfStoragePath = `${userId}/${decaId}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('decas-pdf')
+        .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true });
+      if (uploadError) throw uploadError;
 
       const { error: dbError } = await supabase.from('decas').insert([
         {
@@ -122,6 +132,7 @@ export default function EmitirDeca() {
           digital_signature: newDeca.digitalSignature,
           file_size_bytes: newDeca.fileSizeBytes,
           qr_url: newDeca.qrUrl,
+          pdf_storage_path: pdfStoragePath,
           user_id: userId
         }
       ]);

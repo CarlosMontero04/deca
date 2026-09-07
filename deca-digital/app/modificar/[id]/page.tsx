@@ -68,7 +68,14 @@ export default function ModificarDeca() {
       };
 
       // Regeneramos el PDF para actualizar su tamaño interno con el nuevo historial
-      const { sizeBytes } = await generateDecaPdf(decaData, decaData.qrUrl);
+      const { blob, sizeBytes } = await generateDecaPdf(decaData, decaData.qrUrl);
+
+      if (deca.pdf_storage_path) {
+        const { error: uploadError } = await supabase.storage
+        .from('decas-pdf')
+        .upload(deca.pdf_storage_path, blob, { contentType: 'application/pdf', upsert: true });
+        if (uploadError) throw uploadError;
+      }
 
       // Actualizamos en Supabase
       const { error } = await supabase

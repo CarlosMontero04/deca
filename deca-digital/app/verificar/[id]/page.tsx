@@ -30,6 +30,24 @@ export default function VerificarPage() {
         }
 
         // 2. Formateamos los datos estructurados para nuestro generador
+        if (deca.pdf_storage_path) {
+          const { data: publicUrlData } = supabase.storage
+            .from('decas-pdf')
+            .getPublicUrl(deca.pdf_storage_path);
+          
+          const a = document.createElement('a');
+          a.href = publicUrlData.publicUrl;
+          a.download = `${deca.id}_Documento_Control.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setDownloaded(true);
+          return;
+        }
+
+
+
+
         const decaData = {
           id: deca.id,
           version: deca.version,
@@ -53,9 +71,9 @@ export default function VerificarPage() {
         const pdfUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = pdfUrl;
-        a.download = `${deca.id}_Documento_Control.pdf`; // Nombre del archivo a descargar
+        a.download = `${deca.id}_Documento_Control.pdf`;
         document.body.appendChild(a);
-        a.click(); // Simulamos el clic automático
+        a.click();
         document.body.removeChild(a);
         
         // Limpiamos la memoria y marcamos como completado

@@ -49,8 +49,23 @@ export default function Dashboard() {
   const handleDownloadPdf = async (doc: any) => {
     try {
       setDownloadingId(doc.id);
-      const verificationUrl = doc.qr_url || `https://deca-digital.vercel.app/verificar/${doc.id}`;
       
+      if (doc.pdf_storage_path) {
+        const { data: publicUrlData } = supabase.storage
+          .from('decas-pdf')
+          .getPublicUrl(doc.pdf_storage_path);
+        
+        const a = document.createElement('a');
+        a.href = publicUrlData.publicUrl;
+        a.download = `${doc.id}_v${doc.version}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        return;
+      }
+
+      const verificationUrl = doc.qr_url || `https://deca-ochre.vercel.app/verificar/${doc.id}`;  
+
       const decaData = {
         id: doc.id,
         version: doc.version,
@@ -128,15 +143,14 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-slate-800">Documentos Activos</h2>
             <p className="text-sm text-slate-500">Panel de gestión y control en tiempo real</p>
           </div>
-          {isAdmin && (
-            <button 
-              onClick={() => router.push('/emitir')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
-            >
-              <PlusCircle className="w-5 h-5" />
-              Emitir Nuevo DeCA
-            </button>
-          )}
+          
+          <button
+            onClick={() => router.push('/emitir')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+          >
+            <PlusCircle className="w-5 h-5" />
+            Emitir Nuevo DeCA
+          </button>
         </div>
 
         {decas.length === 0 ? (
@@ -144,9 +158,7 @@ export default function Dashboard() {
             <FileText className="w-16 h-16 text-slate-200 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-slate-700 mb-2">No hay documentos registrados</h3>
             <p className="text-slate-500 max-w-md mx-auto text-sm">
-              {isAdmin 
-                ? 'Aún no has emitido ningún Documento de Control. Haz clic en "Emitir Nuevo DeCA" para crear el primero.' 
-                : 'No tienes ningún viaje asignado en este momento.'}
+              Aún no has emitido ningún Documento de Control. Haz clic en "Emitir Nuevo DeCA" para crear el primero.
             </p>
           </div>
         ) : (
