@@ -59,5 +59,6 @@ export interface DecaDocument {
   fileSizeBytes: number;
   legalRetentionExpiresDate: string;
   qrUrl: string;
+  observations?: string;
   assignedUserId?: string;
 }

@@ -79,7 +79,8 @@ export default function Dashboard() {
         digitalSignature: doc.digital_signature,
         fileSizeBytes: doc.file_size_bytes || 0,
         legalRetentionExpiresDate: doc.legal_retention_expires_date || '',
-        qrUrl: verificationUrl
+        qrUrl: verificationUrl,
+       observations: doc.observations || ''
       };
 
       const { blob } = await generateDecaPdf(decaData, verificationUrl);

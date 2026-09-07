@@ -61,7 +61,8 @@ export default function VerificarPage() {
           digitalSignature: deca.digital_signature,
           fileSizeBytes: deca.file_size_bytes || 0,
           legalRetentionExpiresDate: deca.legal_retention_expires_date || '',
-          qrUrl: deca.qr_url || window.location.href
+          qrUrl: deca.qr_url || window.location.href,
+          observations: deca.observations || ''
         };
 
         // 3. Generamos el PDF oficial al instante

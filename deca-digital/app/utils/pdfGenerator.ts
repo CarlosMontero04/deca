@@ -75,7 +75,12 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.text(`Domicilio: ${deca.contractualShipper.address}`, margin, y);
   y += 4;
   doc.text(`Origen Principal: ${deca.route.originMain} | Destino Principal: ${deca.route.destinationMain}`, margin, y);
+  y += 4;
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Fecha de Realización del Transporte: ${new Date(deca.route.plannedStartDate).toLocaleDateString()}`, margin, y);
+  doc.setFont('helvetica', 'normal');
   y += 8;
+
 
   // --- 3. DESGLOSE OBLIGATORIO DE ENVÍOS ---
   doc.setTextColor(0, 43, 73);
@@ -144,6 +149,22 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     y += 4;
     doc.text(`Detalle: Generación inicial de DeCA con ${deca.shipments.length} envíos agrupados.`, margin, y);
     y += 6;
+  }
+
+  // --- 5. OBSERVACIONES / RESERVAS (solo si se han indicado, art. 6.g) ---
+  if (deca.observations && deca.observations.trim().length > 0) {
+    doc.setTextColor(0, 43, 73);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('5. OBSERVACIONES / RESERVAS', margin, y);
+    y += 5;
+
+    doc.setTextColor(40, 40, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const observacionesLines = doc.splitTextToSize(deca.observations, pageWidth - margin * 2);
+    doc.text(observacionesLines, margin, y);
+    y += observacionesLines.length * 4 + 4;
   }
 
   // --- PIE DE PÁGINA / OBLIGACIÓN LEGAL ---

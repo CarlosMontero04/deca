@@ -64,7 +64,8 @@ export default function ModificarDeca() {
         digitalSignature: deca.digital_signature,
         fileSizeBytes: deca.file_size_bytes || 0,
         legalRetentionExpiresDate: deca.legal_retention_expires_date || '',
-        qrUrl: deca.qr_url
+        qrUrl: deca.qr_url,
+       observations: deca.observations || ''
       };
 
       // Regeneramos el PDF para actualizar su tamaño interno con el nuevo historial

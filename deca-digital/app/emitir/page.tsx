@@ -33,6 +33,11 @@ export default function EmitirDeca() {
   const [goodsDesc, setGoodsDesc] = useState('');
   const [packageCount, setPackageCount] = useState('');
   const [grossWeight, setGrossWeight] = useState('');
+  
+  
+  // Bloque E: Fecha de Realización del Transporte
+  const [transportDate, setTransportDate] = useState('');
+
 
   // Bloque F: Matrículas
   const [tractorPlate, setTractorPlate] = useState('');
@@ -101,13 +106,14 @@ export default function EmitirDeca() {
         route: {
           originMain: origin,
           destinationMain: destination,
-          plannedStartDate: now,
+          plannedStartDate: new Date(transportDate).toISOString(),
           plannedDeliveryDate: new Date(Date.now() + 86400000).toISOString(),
         },
         history: [],
         digitalSignature: `SHA256-DIGITAL-SIGNATURE-${decaId}-${Date.now()}`,
         fileSizeBytes: 0,
         legalRetentionExpiresDate: new Date(Date.now() + 31536000000).toISOString(),
+        observations: observations,
         qrUrl: verificationUrl
       };
 
@@ -133,6 +139,7 @@ export default function EmitirDeca() {
           file_size_bytes: newDeca.fileSizeBytes,
           qr_url: newDeca.qrUrl,
           pdf_storage_path: pdfStoragePath,
+          observations: newDeca.observations || null,
           user_id: userId
         }
       ]);
@@ -258,6 +265,19 @@ export default function EmitirDeca() {
               </div>
             </div>
           </div>
+          {/* BLOQUE E: Fecha de Realización del Transporte */}
+          {/* BLOQUE E: Fecha de Realización del Transporte */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 className="font-bold text-slate-800 border-b pb-2">E. Fecha de Realización del Transporte</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha del Servicio</label>
+                <input type="date" required value={transportDate} onChange={e => setTransportDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+            </div>
+          </div>
+
+
 
           {/* BLOQUE F: Matrículas de los Vehículos */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
