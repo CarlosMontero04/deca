@@ -12,6 +12,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   });
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   let y = 12;
