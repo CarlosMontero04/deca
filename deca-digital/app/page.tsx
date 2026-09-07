@@ -162,13 +162,22 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-slate-800">Documentos Activos</h2>
             <p className="text-sm text-slate-500">Panel de gestión y control en tiempo real</p>
           </div>
-          <button 
-            onClick={() => router.push('/emitir')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
-          >
-            <PlusCircle className="w-5 h-5" />
-            Emitir Nuevo DeCA
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/flota')}
+              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+            >
+              <Truck className="w-5 h-5" />
+              Gestionar Flota
+            </button>
+            <button 
+              onClick={() => router.push('/emitir')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+            >
+              <PlusCircle className="w-5 h-5" />
+              Emitir Nuevo DeCA
+            </button>
+          </div>
         </div>
 
         {decas.length === 0 ? (
