@@ -5,26 +5,58 @@ import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
 import { FileEdit, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
 import { generateDecaPdf } from '@/app/utils/pdfGenerator';
+import { notifyDriver, NotificationMethod } from '@/app/utils/notifyDriver';
 
 export default function ModificarDeca() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
-  
+
   const [deca, setDeca] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
-  // Campos para el historial
+  const [error, setError] = useState<string | null>(null);
+
+  // Campos editables, precargados con el valor actual del documento.
+  // Solo se registra en el historial lo que realmente cambie al guardar.
+  const [tractorPlate, setTractorPlate] = useState('');
+  const [trailerPlate, setTrailerPlate] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [driverDni, setDriverDni] = useState('');
+  const [transportDate, setTransportDate] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [goodsDescription, setGoodsDescription] = useState('');
+  const [grossWeight, setGrossWeight] = useState('');
+  const [observationsField, setObservationsField] = useState('');
+
+  // Contacto del conductor: no se trackea en el historial, solo sirve para avisarle
+  const [driverEmail, setDriverEmail] = useState('');
+  const [notifyMethod, setNotifyMethod] = useState<NotificationMethod>('telefono');
+
+  // Motivo y detalle narrativo, aplican a todos los cambios de este envío
   const [motivo, setMotivo] = useState('CAMBIO_VEHICULO');
   const [detalle, setDetalle] = useState('');
-  
+
   const supabase = createClient();
 
   useEffect(() => {
     const fetchDeca = async () => {
-      const { data, error } = await supabase.from('decas').select('*').eq('id', id).single();
-      if (data) setDeca(data);
+      const { data } = await supabase.from('decas').select('*').eq('id', id).single();
+      if (data) {
+        setDeca(data);
+        setTractorPlate(data.carrier?.tractorPlate || '');
+        setTrailerPlate(data.carrier?.trailerPlate || '');
+        setDriverName(data.carrier?.driverName || '');
+        setDriverDni(data.carrier?.driverDni || '');
+        setDriverEmail(data.carrier?.driverEmail || '');
+        setTransportDate(data.route?.plannedStartDate ? new Date(data.route.plannedStartDate).toISOString().slice(0, 10) : '');
+        setOrigin(data.route?.originMain || '');
+        setDestination(data.route?.destinationMain || '');
+        setGoodsDescription(data.shipments?.[0]?.goodsDescription || '');
+        setGrossWeight(String(data.shipments?.[0]?.grossWeightKg ?? ''));
+        setObservationsField(data.observations || '');
+      }
       setLoading(false);
     };
     fetchDeca();
@@ -32,63 +64,153 @@ export default function ModificarDeca() {
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+
+    // Comparamos cada campo editable contra su valor original para saber qué cambió de verdad
+    const original = {
+      tractorPlate: deca.carrier?.tractorPlate || '',
+      trailerPlate: deca.carrier?.trailerPlate || '',
+      driverName: deca.carrier?.driverName || '',
+      driverDni: deca.carrier?.driverDni || '',
+      transportDate: deca.route?.plannedStartDate ? new Date(deca.route.plannedStartDate).toISOString().slice(0, 10) : '',
+      origin: deca.route?.originMain || '',
+      destination: deca.route?.destinationMain || '',
+      goodsDescription: deca.shipments?.[0]?.goodsDescription || '',
+      grossWeight: String(deca.shipments?.[0]?.grossWeightKg ?? ''),
+      observations: deca.observations || ''
+    };
+
+    const candidatos = [
+      { field: 'tractorPlate', label: 'Matrícula Tractora', previousValue: original.tractorPlate, newValue: tractorPlate },
+      { field: 'trailerPlate', label: 'Matrícula Remolque', previousValue: original.trailerPlate, newValue: trailerPlate },
+      { field: 'driverName', label: 'Nombre Conductor', previousValue: original.driverName, newValue: driverName },
+      { field: 'driverDni', label: 'DNI Conductor', previousValue: original.driverDni, newValue: driverDni },
+      { field: 'transportDate', label: 'Fecha de Realización del Transporte', previousValue: original.transportDate, newValue: transportDate },
+      { field: 'origin', label: 'Lugar de Origen', previousValue: original.origin, newValue: origin },
+      { field: 'destination', label: 'Lugar de Destino', previousValue: original.destination, newValue: destination },
+      { field: 'goodsDescription', label: 'Naturaleza de la Mercancía', previousValue: original.goodsDescription, newValue: goodsDescription },
+      { field: 'grossWeight', label: 'Peso Bruto (Kg)', previousValue: original.grossWeight, newValue: grossWeight },
+      { field: 'observations', label: 'Observaciones', previousValue: original.observations, newValue: observationsField },
+    ];
+
+    const cambios = candidatos.filter(c => c.previousValue !== c.newValue);
+
+    if (cambios.length === 0 && !detalle.trim()) {
+      setError('No has modificado ningún dato ni indicado un detalle. Cambia algún campo o escribe un detalle.');
+      return;
+    }
+
     setSaving(true);
 
     try {
       const nuevaVersion = deca.version + 1;
       const { data: { session } } = await supabase.auth.getSession();
-      
-      const nuevoHistorial = [
-        ...(deca.history || []),
-        {
-          version: nuevaVersion,
-          timestamp: new Date().toISOString(),
-          reason: motivo,
-          details: detalle,
-          modifiedBy: session?.user?.user_metadata?.full_name || 'Transportista',
-          qrHash: `HASH-MOD-${id}-${Date.now().toString().slice(-6)}`
-        }
-      ];
+      const modifiedBy = session?.user?.user_metadata?.full_name || 'Transportista';
+      const timestamp = new Date().toISOString();
 
-      // Reconstruimos el objeto para el PDF
+      // Una entrada de historial por CADA campo que cambió, con su antes/después.
+      // Si no hubo campos estructurados pero sí un detalle (ej. avería en ruta sin
+      // cambiar ningún dato), se guarda igualmente una entrada narrativa.
+      const entradasHistorial = cambios.length > 0
+        ? cambios.map(c => ({
+            version: nuevaVersion,
+            timestamp,
+            field: c.label,
+            reason: motivo,
+            details: detalle,
+            previousValue: c.previousValue,
+            newValue: c.newValue,
+            modifiedBy,
+            qrHash: `HASH-MOD-${id}-${Date.now().toString().slice(-6)}-${c.field}`
+          }))
+        : [{
+            version: nuevaVersion,
+            timestamp,
+            reason: motivo,
+            details: detalle,
+            modifiedBy,
+            qrHash: `HASH-MOD-${id}-${Date.now().toString().slice(-6)}`
+          }];
+
+      const nuevoHistorial = [...(deca.history || []), ...entradasHistorial];
+
+      // Aplicamos los cambios a copias actualizadas de cada bloque de datos del documento
+      const nuevoCarrier = {
+        ...deca.carrier,
+        tractorPlate,
+        trailerPlate,
+        driverName,
+        driverDni,
+        driverEmail: driverEmail || undefined,
+      };
+      const nuevoRoute = {
+        ...deca.route,
+        originMain: origin,
+        destinationMain: destination,
+        plannedStartDate: new Date(transportDate).toISOString(),
+      };
+      const nuevosShipments = (deca.shipments || []).map((s: any, idx: number) =>
+        idx === 0
+          ? { ...s, originAddress: origin, destinationAddress: destination, goodsDescription, grossWeightKg: parseFloat(grossWeight) || 0 }
+          : s
+      );
+
       const decaData = {
         id: deca.id,
         version: nuevaVersion,
         creationDate: deca.creation_date,
         status: deca.status,
-        carrier: deca.carrier,
+        carrier: nuevoCarrier,
         contractualShipper: deca.contractual_shipper,
-        shipments: deca.shipments,
-        route: deca.route,
+        shipments: nuevosShipments,
+        route: nuevoRoute,
         history: nuevoHistorial,
         digitalSignature: deca.digital_signature,
         fileSizeBytes: deca.file_size_bytes || 0,
         legalRetentionExpiresDate: deca.legal_retention_expires_date || '',
         qrUrl: deca.qr_url,
-       observations: deca.observations || ''
+        observations: observationsField
       };
 
-      // Regeneramos el PDF para actualizar su tamaño interno con el nuevo historial
+      // Regeneramos el PDF con todos los datos actualizados y el historial completo
       const { blob, sizeBytes } = await generateDecaPdf(decaData, decaData.qrUrl);
 
+      // Sobrescribimos el MISMO fichero en Storage (mismo path = misma URL/QR de siempre,
+      // método 1 del apartado Quinto: modificar el PDF existente sin cambiar su URL)
       if (deca.pdf_storage_path) {
         const { error: uploadError } = await supabase.storage
-        .from('decas-pdf')
-        .upload(deca.pdf_storage_path, blob, { contentType: 'application/pdf', upsert: true });
+          .from('decas-pdf')
+          .upload(deca.pdf_storage_path, blob, { contentType: 'application/pdf', upsert: true });
         if (uploadError) throw uploadError;
       }
 
-      // Actualizamos en Supabase
-      const { error } = await supabase
+      // Actualizamos en Supabase — ahora también los datos reales, no solo el historial
+      const { error: dbError } = await supabase
         .from('decas')
         .update({
           version: nuevaVersion,
           history: nuevoHistorial,
-          file_size_bytes: sizeBytes
+          file_size_bytes: sizeBytes,
+          carrier: nuevoCarrier,
+          route: nuevoRoute,
+          shipments: nuevosShipments,
+          observations: observationsField
         })
         .eq('id', id);
 
-      if (error) throw error;
+      if (dbError) throw dbError;
+
+      // Avisamos al conductor de la versión actualizada, por el canal elegido.
+      // Esto abre WhatsApp o el cliente de correo con el mensaje listo; quien
+      // gestiona el DeCA es quien pulsa "Enviar" en la app externa.
+      notifyDriver(
+        notifyMethod,
+        nuevoCarrier.phone,
+        nuevoCarrier.driverEmail,
+        `Se ha actualizado tu Documento de Control (DeCA) ${deca.id} a la versión v${nuevaVersion}.0. Motivo: ${motivo}.`,
+        deca.qr_url
+      );
+
       router.push('/');
 
     } catch (err) {
@@ -111,52 +233,123 @@ export default function ModificarDeca() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 mb-6">
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <FileEdit className="w-6 h-6 text-amber-500" />
-            Anotar Modificación en Ruta
+            Modificar Documento de Control
           </h2>
           <p className="text-sm text-slate-500 mt-2">
-            Según el BOE, las modificaciones en ruta (ej. averías, cambios de conductor) deben registrarse digitalmente para generar una nueva versión válida del PDF.
+            Cambia solo los datos que necesites actualizar; el resto se deja igual. Cada dato que cambies quedará registrado con su valor anterior y el nuevo, tal como exige la normativa.
           </p>
           <div className="mt-4 inline-block bg-slate-100 px-3 py-1 rounded font-mono text-sm font-bold text-slate-700">
             Editando ID: {deca.id} (Versión actual: v{deca.version}.0)
           </div>
         </div>
 
+        {error && (
+          <div className="mb-6 bg-rose-50 text-rose-600 p-4 rounded-xl text-sm border border-rose-200">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleUpdate} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
           <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3 text-amber-800 text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0" />
-            <p>Al guardar, el documento pasará a la <strong>versión v{deca.version + 1}.0</strong>. El código QR seguirá siendo el mismo y el PDF se actualizará automáticamente con esta incidencia.</p>
+            <p>Al guardar, el documento pasará a la <strong>versión v{deca.version + 1}.0</strong>. El código QR seguirá siendo el mismo.</p>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Motivo Oficial de la Modificación</label>
-            <select 
-              value={motivo} 
-              onChange={e => setMotivo(e.target.value)} 
-              className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900" 
-            >
-              <option value="CAMBIO_VEHICULO">Cambio de Vehículo / Tractora</option>
-              <option value="CAMBIO_CONDUCTOR">Cambio de Conductor</option>
-              <option value="RESERVA_ESTADO_MERCANCIA">Reserva sobre el estado de la mercancía</option>
-              <option value="INCIDENCIA_RUTA">Incidencia grave en ruta (Avería / Accidente)</option>
-              <option value="OTRO">Otro motivo regulado</option>
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Tractora</label>
+              <input type="text" value={tractorPlate} onChange={e => setTractorPlate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Remolque</label>
+              <input type="text" value={trailerPlate} onChange={e => setTrailerPlate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Conductor</label>
+              <input type="text" value={driverName} onChange={e => setDriverName(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">DNI Conductor</label>
+              <input type="text" value={driverDni} onChange={e => setDriverDni(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Realización del Transporte</label>
+              <input type="date" value={transportDate} onChange={e => setTransportDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Peso Bruto (Kg)</label>
+              <input type="text" value={grossWeight} onChange={e => setGrossWeight(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Origen</label>
+              <input type="text" value={origin} onChange={e => setOrigin(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Destino</label>
+              <input type="text" value={destination} onChange={e => setDestination(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Naturaleza de la Mercancía</label>
+              <input type="text" value={goodsDescription} onChange={e => setGoodsDescription(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
+              <textarea value={observationsField} onChange={e => setObservationsField(e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Detalle (Sustituye a la anotación manuscrita)</label>
-            <textarea 
-              required 
-              value={detalle} 
-              onChange={e => setDetalle(e.target.value)} 
-              rows={4} 
-              placeholder="Ej. El camión averió en el km 120. Se transborda la carga al remolque R-9999-XYZ..." 
-              className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900 placeholder:text-slate-400" 
-            />
+          <div className="border-t pt-6 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Motivo Oficial de la Modificación</label>
+              <select
+                value={motivo}
+                onChange={e => setMotivo(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900"
+              >
+                <option value="CAMBIO_VEHICULO">Cambio de Vehículo / Tractora</option>
+                <option value="CAMBIO_CONDUCTOR">Cambio de Conductor</option>
+                <option value="RESERVA_ESTADO_MERCANCIA">Reserva sobre el estado de la mercancía</option>
+                <option value="INCIDENCIA_RUTA">Incidencia grave en ruta (Avería / Accidente)</option>
+                <option value="VARIACION_DESTINO">Variación de destino</option>
+                <option value="OTRO">Otro motivo</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Detalle (Sustituye a la anotación manuscrita)</label>
+              <textarea
+                value={detalle}
+                onChange={e => setDetalle(e.target.value)}
+                rows={3}
+                placeholder="Ej. El camión averió en el km 120. Se transborda la carga al remolque R-9999-XYZ..."
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900 placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+
+          <div className="border-t pt-6 space-y-4">
+            <h3 className="font-bold text-slate-800 text-sm">Notificar al conductor la versión actualizada</h3>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="radio" name="notifyMethod" checked={notifyMethod === 'telefono'} onChange={() => setNotifyMethod('telefono')} />
+                Por teléfono (WhatsApp)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="radio" name="notifyMethod" checked={notifyMethod === 'email'} onChange={() => setNotifyMethod('email')} />
+                Por email
+              </label>
+            </div>
+            {notifyMethod === 'email' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Email del Conductor</label>
+                <input type="email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} placeholder="conductor@ejemplo.com" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={saving} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2">
             <Save className="w-5 h-5" />
-            {saving ? 'Registrando y Firmando...' : 'Firmar Modificación Legal'}
+            {saving ? 'Guardando...' : 'Guardar Modificación'}
           </button>
         </form>
       </div>

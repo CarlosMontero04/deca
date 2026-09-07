@@ -12,8 +12,6 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   });
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  
   
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
@@ -81,7 +79,6 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'normal');
   y += 8;
 
-
   // --- 3. DESGLOSE OBLIGATORIO DE ENVÍOS ---
   doc.setTextColor(0, 43, 73);
   doc.setFont('helvetica', 'bold');
@@ -141,7 +138,17 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     deca.history.forEach((h) => {
       doc.text(`Versión v${h.version} [${new Date(h.timestamp).toLocaleString()}] - Motivo: ${h.reason}`, margin, y);
       y += 4;
-      doc.text(`Detalle: ${h.details} | Modificado por: ${h.modifiedBy} | Hash: ${h.qrHash}`, margin, y);
+      if (h.field) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Campo modificado: ${h.field} — Antes: "${h.previousValue || 'N/A'}" → Ahora: "${h.newValue || 'N/A'}"`, margin, y);
+        doc.setFont('helvetica', 'normal');
+        y += 4;
+      }
+      if (h.details) {
+        doc.text(`Detalle: ${h.details}`, margin, y);
+        y += 4;
+      }
+      doc.text(`Modificado por: ${h.modifiedBy} | Hash: ${h.qrHash}`, margin, y);
       y += 5;
     });
   } else {

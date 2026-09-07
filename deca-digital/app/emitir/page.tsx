@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import { FileText, ArrowLeft, Save, Truck } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { generateDecaPdf } from '../utils/pdfGenerator';
+import { notifyDriver, NotificationMethod } from '../utils/notifyDriver';
 import { DecaDocument } from '../types';
+
+// Dominio canónico único de la app — usado en el QR y en la URL de verificación
+// para que ambos coincidan siempre (antes había dos dominios distintos mezclados).
 const APP_URL = 'https://deca-ochre.vercel.app';
 
 export default function EmitirDeca() {
@@ -24,20 +28,20 @@ export default function EmitirDeca() {
   const [carrierAddress, setCarrierAddress] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverDni, setDriverDni] = useState('');
+  const [driverEmail, setDriverEmail] = useState('');
+  const [notifyMethod, setNotifyMethod] = useState<NotificationMethod>('telefono');
 
   // Bloque C: Origen y Destino
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
 
+  // Bloque E: Fecha de Realización del Transporte
+  const [transportDate, setTransportDate] = useState('');
+
   // Bloque D: Mercancía
   const [goodsDesc, setGoodsDesc] = useState('');
   const [packageCount, setPackageCount] = useState('');
   const [grossWeight, setGrossWeight] = useState('');
-  
-  
-  // Bloque E: Fecha de Realización del Transporte
-  const [transportDate, setTransportDate] = useState('');
-
 
   // Bloque F: Matrículas
   const [tractorPlate, setTractorPlate] = useState('');
@@ -56,14 +60,14 @@ export default function EmitirDeca() {
     try {
       const decaId = `DECA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
       const now = new Date().toISOString();
+
       // Necesitamos el usuario ANTES de generar el PDF para poder subirlo a su carpeta en Storage
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
       if (!userId) throw new Error('No hay sesión activa.');
+
       const verificationUrl = `${APP_URL}/verificar/${decaId}`;
 
-
-      
       const newDeca: DecaDocument = {
         id: decaId,
         version: 1,
@@ -75,6 +79,7 @@ export default function EmitirDeca() {
           address: carrierAddress,
           driverName: driverName,
           driverDni: driverDni,
+          driverEmail: driverEmail || undefined,
           tractorPlate: tractorPlate,
           trailerPlate: trailerPlate,
           phone: '600000000',
@@ -120,10 +125,13 @@ export default function EmitirDeca() {
       const { blob, sizeBytes } = await generateDecaPdf(newDeca, verificationUrl);
       newDeca.fileSizeBytes = sizeBytes;
 
+      // Subimos el fichero real al repositorio (Supabase Storage) — esto es lo que
+      // convierte el PDF en un documento almacenado de verdad, no regenerado al vuelo.
       const pdfStoragePath = `${userId}/${decaId}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('decas-pdf')
         .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true });
+
       if (uploadError) throw uploadError;
 
       const { error: dbError } = await supabase.from('decas').insert([
@@ -145,6 +153,15 @@ export default function EmitirDeca() {
       ]);
 
       if (dbError) throw dbError;
+
+      // El conductor debe disponer del DeCA antes del inicio del servicio (apartado Séptimo)
+      notifyDriver(
+        notifyMethod,
+        newDeca.carrier.phone,
+        newDeca.carrier.driverEmail,
+        `Aquí tienes tu Documento de Control (DeCA) ${newDeca.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
+        verificationUrl
+      );
 
       router.push('/');
 
@@ -230,6 +247,26 @@ export default function EmitirDeca() {
                 <input type="text" required value={driverDni} onChange={e => setDriverDni(e.target.value)} placeholder="Ej. 24060486-D" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
             </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="text-xs font-bold text-slate-600 uppercase">Notificar al conductor la emisión del DeCA</h4>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="radio" name="notifyMethod" checked={notifyMethod === 'telefono'} onChange={() => setNotifyMethod('telefono')} />
+                  Por teléfono (WhatsApp)
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="radio" name="notifyMethod" checked={notifyMethod === 'email'} onChange={() => setNotifyMethod('email')} />
+                  Por email
+                </label>
+              </div>
+              {notifyMethod === 'email' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Email del Conductor</label>
+                  <input type="email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} placeholder="conductor@ejemplo.com" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* BLOQUE C: Origen y Destino */}
@@ -265,7 +302,7 @@ export default function EmitirDeca() {
               </div>
             </div>
           </div>
-          {/* BLOQUE E: Fecha de Realización del Transporte */}
+
           {/* BLOQUE E: Fecha de Realización del Transporte */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">E. Fecha de Realización del Transporte</h3>
@@ -276,8 +313,6 @@ export default function EmitirDeca() {
               </div>
             </div>
           </div>
-
-
 
           {/* BLOQUE F: Matrículas de los Vehículos */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">

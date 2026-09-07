@@ -18,7 +18,8 @@ export interface ShipmentItem {
 export interface ModificationLog {
   version: number;
   timestamp: string;
-  reason: 'CAMBIO_VEHICULO' | 'CAMBIO_CONDUCTOR' | 'INCIDENCIA_RUTA' | 'VARIACION_DESTINO' | 'REAGRUPACION';
+  field?: string;
+  reason: string;
   details: string;
   previousValue?: string;
   newValue?: string;
@@ -37,6 +38,7 @@ export interface DecaDocument {
     address: string;
     driverName: string;
     driverDni: string;
+    driverEmail?: string;
     tractorPlate: string;
     trailerPlate?: string;
     phone: string;
