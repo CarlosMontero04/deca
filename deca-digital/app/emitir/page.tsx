@@ -194,6 +194,12 @@ export default function EmitirDeca() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (transportDate && transportDate < new Date().toISOString().slice(0, 10)) {
+      const confirmar = confirm('La fecha de transporte ya ha pasado. La norma exige generar el DeCA antes de iniciar el servicio; emitirlo con fecha pasada puede ser sancionable. ¿Seguro que quieres continuar?');
+      if (!confirmar) return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -575,6 +581,11 @@ export default function EmitirDeca() {
                 <input type="date" required value={transportDate} onChange={e => setTransportDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
             </div>
+            {transportDate && transportDate < new Date().toISOString().slice(0, 10) && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Esta fecha ya ha pasado. La norma exige que el DeCA exista antes de iniciar el servicio — emitirlo con fecha pasada puede considerarse infracción sancionable.
+              </p>
+            )}
           </div>
 
           {/* BLOQUE F: Matrículas de los Vehículos */}
