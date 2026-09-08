@@ -48,6 +48,8 @@ export interface DecaDocument {
     cif: string;
     address: string;
     contactName: string;
+    phone?: string;
+    email?: string;
   };
   shipments: ShipmentItem[];
   route: {

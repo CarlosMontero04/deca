@@ -78,23 +78,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.rect(0, y, pageWidth, 1.4, 'F');
   y += 8;
 
-  // --- 1. TRANSPORTISTA EFECTIVO ---
-  y = sectionHeader('1. TRANSPORTISTA EFECTIVO (EMPRESA DE TRANSPORTE)', y);
-
-  doc.setTextColor(...GRAY_DARK);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text(`Empresa: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
-  y += 4.5;
-  doc.text(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})`, margin, y);
-  y += 4.5;
-  doc.text(`Tractora: ${deca.carrier.tractorPlate}  |  Remolque: ${deca.carrier.trailerPlate || 'N/A'}  |  Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
-  y += 4.5;
-  doc.text(`Domicilio: ${deca.carrier.address}`, margin, y);
-  y += 9;
-
-  // --- 2. CARGADOR CONTRACTUAL ---
-  y = sectionHeader('2. CARGADOR CONTRACTUAL (EMPRESA CONTRATANTE)', y);
+  // --- 1. CARGADOR CONTRACTUAL ---
+  y = sectionHeader('1. CARGADOR CONTRACTUAL (EMPRESA CONTRATANTE)', y);
 
   doc.setTextColor(...GRAY_DARK);
   doc.setFont('helvetica', 'normal');
@@ -102,6 +87,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.text(`Empresa: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, margin, y);
   y += 4.5;
   doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
+  y += 4.5;
+  doc.text(`Teléfono: ${deca.contractualShipper.phone || 'N/A'}  |  Email: ${deca.contractualShipper.email || 'N/A'}`, margin, y);
   y += 4.5;
   doc.text(`Domicilio: ${deca.contractualShipper.address}`, margin, y);
   y += 4.5;
@@ -114,6 +101,21 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...ORANGE);
   doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, margin, y);
+  y += 9;
+
+  // --- 2. TRANSPORTISTA EFECTIVO ---
+  y = sectionHeader('2. TRANSPORTISTA EFECTIVO (EMPRESA DE TRANSPORTE)', y);
+
+  doc.setTextColor(...GRAY_DARK);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(`Empresa: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
+  y += 4.5;
+  doc.text(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})`, margin, y);
+  y += 4.5;
+  doc.text(`Tractora: ${deca.carrier.tractorPlate}  |  Remolque: ${deca.carrier.trailerPlate || 'N/A'}  |  Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
+  y += 4.5;
+  doc.text(`Domicilio: ${deca.carrier.address}`, margin, y);
   y += 9;
 
   // --- 3. DESGLOSE OBLIGATORIO DE ENVÍOS ---
@@ -224,7 +226,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setTextColor(...NAVY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
-  doc.text('OBLIGACIÓN LEGAL DE CONSERVACIÓN Y FIRMA DIGITAL DE METADATOS', margin, y);
+  doc.text('OBLIGACIÓN LEGAL DE CONSERVACIÓN Y METADATOS DE INTEGRIDAD', margin, y);
   y += 4;
 
   doc.setTextColor(...GRAY_MUTED);
@@ -232,7 +234,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(7);
   doc.text('1. Archivo legal obligatorio durante un mínimo de 1 año (Fecha límite legal de conservación: ' + fechaCorta(deca.legalRetentionExpiresDate) + ').', margin, y);
   y += 3.5;
-  doc.text(`2. Firma Digital de Sellado de Tiempo: ${deca.digitalSignature}`, margin, y);
+  doc.text(`2. Sello de Integridad (Hash): ${deca.digitalSignature}`, margin, y);
   y += 3.5;
   doc.text('3. Validez técnica verificada mediante código Hash e interoperabilidad oficial según Orden FOM/2861/2012 y Real Decreto BOE.', margin, y);
   y += 6;

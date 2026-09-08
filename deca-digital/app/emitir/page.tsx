@@ -21,6 +21,8 @@ export default function EmitirDeca() {
   const [shipperName, setShipperName] = useState('');
   const [shipperCif, setShipperCif] = useState('');
   const [shipperAddress, setShipperAddress] = useState('');
+  const [shipperPhone, setShipperPhone] = useState('');
+  const [shipperEmail, setShipperEmail] = useState('');
 
   // Bloque B: Transportista Efectivo
   const [carrierName, setCarrierName] = useState('');
@@ -68,6 +70,7 @@ export default function EmitirDeca() {
   const [savedDrivers, setSavedDrivers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [selectedCarrierId, setSelectedCarrierId] = useState('');
+  const [fleetSaveMessage, setFleetSaveMessage] = useState('');
 
   const supabase = createClient();
 
@@ -117,6 +120,66 @@ export default function EmitirDeca() {
     }
   };
 
+  const flashFleetMessage = (msg: string) => {
+    setFleetSaveMessage(msg);
+    setTimeout(() => setFleetSaveMessage(''), 3000);
+  };
+
+  const refreshFleet = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const uid = session.user.id;
+    const [c, d, t] = await Promise.all([
+      supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
+      supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
+      supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
+    ]);
+    setSavedCarriers(c.data || []);
+    setSavedDrivers(d.data || []);
+    setSavedTractors(t.data || []);
+  };
+
+  const saveCarrierToFleet = async () => {
+    if (!carrierName || !carrierCif) { flashFleetMessage('Rellena empresa y CIF primero'); return; }
+    const yaExiste = savedCarriers.some(c => c.cif.toLowerCase() === carrierCif.toLowerCase());
+    if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('carriers').insert([{
+      company_name: carrierName, cif: carrierCif, address: carrierAddress, phone: carrierPhone, user_id: session.user.id
+    }]);
+    await refreshFleet();
+    flashFleetMessage('✓ Transportista guardado');
+  };
+
+  const saveDriverToFleet = async () => {
+    if (!driverName) { flashFleetMessage('Rellena el nombre primero'); return; }
+    const yaExiste = savedDrivers.some(d => driverDni && d.dni?.toLowerCase() === driverDni.toLowerCase());
+    if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('drivers').insert([{
+      name: driverName, dni: driverDni, email: driverEmail || null, phone: carrierPhone,
+      carrier_id: selectedCarrierId || null, user_id: session.user.id
+    }]);
+    await refreshFleet();
+    flashFleetMessage('✓ Conductor guardado');
+  };
+
+  const saveTractorToFleet = async () => {
+    if (!tractorPlate) { flashFleetMessage('Rellena la matrícula primero'); return; }
+    const yaExiste = savedTractors.some(t => t.tractor_plate.toLowerCase() === tractorPlate.toLowerCase());
+    if (yaExiste) { flashFleetMessage('Ya estaba guardada'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('tractors').insert([{
+      tractor_plate: tractorPlate, trailer_plate: trailerPlate || null,
+      carrier_id: selectedCarrierId || null, user_id: session.user.id
+    }]);
+    await refreshFleet();
+    flashFleetMessage('✓ Tractora guardada');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -154,6 +217,8 @@ export default function EmitirDeca() {
           cif: shipperCif,
           address: shipperAddress,
           contactName: shipperName,
+          phone: shipperPhone || undefined,
+          email: shipperEmail || undefined,
         },
         shipments: [
           {
@@ -316,6 +381,14 @@ export default function EmitirDeca() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Dirección y Población</label>
                 <input type="text" required value={shipperAddress} onChange={e => setShipperAddress(e.target.value)} placeholder="Ej. C/ ORILLA DE AZARBE 243, 30139 EL RAAL (MURCIA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
+                <input type="tel" value={shipperPhone} onChange={e => setShipperPhone(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+                <input type="email" value={shipperEmail} onChange={e => setShipperEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
             </div>
           </div>
 
@@ -377,9 +450,23 @@ export default function EmitirDeca() {
                 <input type="text" required value={driverDni} onChange={e => setDriverDni(e.target.value)} placeholder="Ej. 24060486-D" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Email Conductor</label>
+                <input type="email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} placeholder="conductor@ejemplo.com" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto</label>
                 <input type="tel" required value={carrierPhone} onChange={e => setCarrierPhone(e.target.value)} placeholder="Ej. 600123456" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={saveCarrierToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <Save className="w-3.5 h-3.5" /> Guardar transportista en mi flota
+              </button>
+              <button type="button" onClick={saveDriverToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <Save className="w-3.5 h-3.5" /> Guardar conductor en mi flota
+              </button>
+              {fleetSaveMessage && <span className="text-xs text-emerald-600 font-semibold self-center">{fleetSaveMessage}</span>}
             </div>
 
             <div className="border-t pt-4 space-y-3">
@@ -394,12 +481,6 @@ export default function EmitirDeca() {
                   Por email
                 </label>
               </div>
-              {notifyMethod === 'email' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Email del Conductor</label>
-                  <input type="email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} placeholder="conductor@ejemplo.com" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
-                </div>
-              )}
             </div>
           </div>
 
@@ -482,6 +563,13 @@ export default function EmitirDeca() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Remolque / Semirremolque</label>
                 <input type="text" value={trailerPlate} onChange={e => setTrailerPlate(e.target.value)} placeholder="Ej. R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={saveTractorToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <Save className="w-3.5 h-3.5" /> Guardar tractora en mi flota
+              </button>
+              {fleetSaveMessage && <span className="text-xs text-emerald-600 font-semibold self-center">{fleetSaveMessage}</span>}
             </div>
           </div>
 

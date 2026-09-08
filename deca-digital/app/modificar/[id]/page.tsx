@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
-import { FileEdit, ArrowLeft, Save, AlertTriangle } from 'lucide-react';
+import { FileEdit, ArrowLeft, Save } from 'lucide-react';
 import { generateDecaPdf } from '@/app/utils/pdfGenerator';
 import { notifyDriver, NotificationMethod } from '@/app/utils/notifyDriver';
 
@@ -31,6 +31,11 @@ export default function ModificarDeca() {
   const [grossWeight, setGrossWeight] = useState('');
   const [observationsField, setObservationsField] = useState('');
   const [stopsText, setStopsText] = useState('');
+  const [shipperName, setShipperName] = useState('');
+  const [shipperCif, setShipperCif] = useState('');
+  const [shipperAddress, setShipperAddress] = useState('');
+  const [shipperPhone, setShipperPhone] = useState('');
+  const [shipperEmail, setShipperEmail] = useState('');
 
   // Título interno: no se trackea en el historial (es solo tu referencia, no un dato legal)
   const [internalTitle, setInternalTitle] = useState('');
@@ -68,6 +73,11 @@ export default function ModificarDeca() {
         setGoodsDescription(data.shipments?.[0]?.goodsDescription || '');
         setGrossWeight(String(data.shipments?.[0]?.grossWeightKg ?? ''));
         setObservationsField(data.observations || '');
+        setShipperName(data.contractual_shipper?.companyName || '');
+        setShipperCif(data.contractual_shipper?.cif || '');
+        setShipperAddress(data.contractual_shipper?.address || '');
+        setShipperPhone(data.contractual_shipper?.phone || '');
+        setShipperEmail(data.contractual_shipper?.email || '');
         setStopsText((data.stops || []).join('\n'));
         setInternalTitle(data.internal_title || '');
       }
@@ -92,7 +102,12 @@ export default function ModificarDeca() {
       destination: deca.route?.destinationMain || '',
       goodsDescription: deca.shipments?.[0]?.goodsDescription || '',
       grossWeight: String(deca.shipments?.[0]?.grossWeightKg ?? ''),
-      observations: deca.observations || ''
+      observations: deca.observations || '',
+      shipperName: deca.contractual_shipper?.companyName || '',
+      shipperCif: deca.contractual_shipper?.cif || '',
+      shipperAddress: deca.contractual_shipper?.address || '',
+      shipperPhone: deca.contractual_shipper?.phone || '',
+      shipperEmail: deca.contractual_shipper?.email || ''
     };
     const originalStopsText = (deca.stops || []).join('\n');
 
@@ -102,6 +117,11 @@ export default function ModificarDeca() {
       { field: 'driverName', label: 'Nombre Conductor', previousValue: original.driverName, newValue: driverName },
       { field: 'driverDni', label: 'DNI Conductor', previousValue: original.driverDni, newValue: driverDni },
       { field: 'phone', label: 'Teléfono de Contacto', previousValue: original.phone, newValue: phone },
+      { field: 'shipperName', label: 'Empresa Cargador Contractual', previousValue: original.shipperName, newValue: shipperName },
+      { field: 'shipperCif', label: 'NIF/CIF Cargador Contractual', previousValue: original.shipperCif, newValue: shipperCif },
+      { field: 'shipperAddress', label: 'Domicilio Cargador Contractual', previousValue: original.shipperAddress, newValue: shipperAddress },
+      { field: 'shipperPhone', label: 'Teléfono Cargador Contractual', previousValue: original.shipperPhone, newValue: shipperPhone },
+      { field: 'shipperEmail', label: 'Email Cargador Contractual', previousValue: original.shipperEmail, newValue: shipperEmail },
       { field: 'transportDate', label: 'Fecha de Realización del Transporte', previousValue: original.transportDate, newValue: transportDate },
       { field: 'origin', label: 'Lugar de Origen', previousValue: original.origin, newValue: origin },
       { field: 'destination', label: 'Lugar de Destino', previousValue: original.destination, newValue: destination },
@@ -173,6 +193,14 @@ export default function ModificarDeca() {
           ? { ...s, originAddress: origin, destinationAddress: destination, goodsDescription, grossWeightKg: parseFloat(grossWeight) || 0 }
           : s
       );
+      const nuevoContractualShipper = {
+        ...deca.contractual_shipper,
+        companyName: shipperName,
+        cif: shipperCif,
+        address: shipperAddress,
+        phone: shipperPhone || undefined,
+        email: shipperEmail || undefined,
+      };
 
       const decaData = {
         id: deca.id,
@@ -180,7 +208,7 @@ export default function ModificarDeca() {
         creationDate: deca.creation_date,
         status: deca.status,
         carrier: nuevoCarrier,
-        contractualShipper: deca.contractual_shipper,
+        contractualShipper: nuevoContractualShipper,
         shipments: nuevosShipments,
         route: nuevoRoute,
         history: nuevoHistorial,
@@ -212,6 +240,7 @@ export default function ModificarDeca() {
           history: nuevoHistorial,
           file_size_bytes: sizeBytes,
           carrier: nuevoCarrier,
+          contractual_shipper: nuevoContractualShipper,
           route: nuevoRoute,
           shipments: nuevosShipments,
           observations: observationsField,
@@ -259,7 +288,7 @@ export default function ModificarDeca() {
             Modificar Documento de Control
           </h2>
           <p className="text-sm text-slate-500 mt-2">
-            Cambia solo los datos que necesites actualizar; el resto se deja igual. Cada dato que cambies quedará registrado con su valor anterior y el nuevo, tal como exige la normativa.
+            Cambia solo los datos que necesites actualizar; el resto se deja igual.
           </p>
           <div className="mt-4 inline-block bg-slate-100 px-3 py-1 rounded font-mono text-sm font-bold text-slate-700">
             Editando ID: {deca.id} (Versión actual: v{deca.version}.0)
@@ -297,17 +326,32 @@ export default function ModificarDeca() {
           </div>
         ) : (
         <form onSubmit={handleUpdate} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6">
-          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex gap-3 text-amber-800 text-sm">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            <p>Al guardar, el documento pasará a la <strong>versión v{deca.version + 1}.0</strong>. El código QR seguirá siendo el mismo.</p>
-          </div>
-
           <div className="bg-slate-100 rounded-xl border border-slate-200 p-4">
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Título Interno (opcional, solo para tu referencia — no cuenta como modificación del documento)</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Título Interno (opcional)</label>
             <input type="text" value={internalTitle} onChange={e => setInternalTitle(e.target.value)} placeholder="Ej. Envío Mercadona semana 36" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa Cargador Contractual</label>
+              <input type="text" value={shipperName} onChange={e => setShipperName(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">NIF/CIF Cargador Contractual</label>
+              <input type="text" value={shipperCif} onChange={e => setShipperCif(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Domicilio Cargador Contractual</label>
+              <input type="text" value={shipperAddress} onChange={e => setShipperAddress(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono Cargador Contractual</label>
+              <input type="tel" value={shipperPhone} onChange={e => setShipperPhone(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Email Cargador Contractual</label>
+              <input type="email" value={shipperEmail} onChange={e => setShipperEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Tractora</label>
               <input type="text" value={tractorPlate} onChange={e => setTractorPlate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
