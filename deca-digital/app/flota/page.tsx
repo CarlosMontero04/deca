@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { ArrowLeft, Truck, User, Trash2, Pencil, Plus, X } from 'lucide-react';
 
-type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras';
+type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques';
 
 export default function FlotaPanel() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function FlotaPanel() {
   const [carriers, setCarriers] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [tractors, setTractors] = useState<any[]>([]);
+  const [trailers, setTrailers] = useState<any[]>([]);
 
   // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
   const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '' });
@@ -28,18 +29,22 @@ export default function FlotaPanel() {
   // Formulario de Conductor
   const [driverForm, setDriverForm] = useState({ id: '', name: '', dni: '', email: '', phone: '', carrier_id: '' });
   // Formulario de Tractora
-  const [tractorForm, setTractorForm] = useState({ id: '', tractor_plate: '', trailer_plate: '', carrier_id: '' });
+  const [tractorForm, setTractorForm] = useState({ id: '', tractor_plate: '', carrier_id: '' });
+  // Formulario de Remolque (entidad propia: un remolque puede compartirse entre varias tractoras)
+  const [trailerForm, setTrailerForm] = useState({ id: '', trailer_plate: '', carrier_id: '' });
 
   const loadAll = async (uid: string) => {
-    const [c, d, t, e] = await Promise.all([
+    const [c, d, t, tr, e] = await Promise.all([
       supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
       supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
       supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
+      supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
       supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
     ]);
     setCarriers(c.data || []);
     setDrivers(d.data || []);
     setTractors(t.data || []);
+    setTrailers(tr.data || []);
     if (e.data) {
       setCompanyForm({
         company_name: e.data.company_name || '',
@@ -65,7 +70,8 @@ export default function FlotaPanel() {
   const resetForms = () => {
     setCarrierForm({ id: '', company_name: '', cif: '', address: '', phone: '' });
     setDriverForm({ id: '', name: '', dni: '', email: '', phone: '', carrier_id: '' });
-    setTractorForm({ id: '', tractor_plate: '', trailer_plate: '', carrier_id: '' });
+    setTractorForm({ id: '', tractor_plate: '', carrier_id: '' });
+    setTrailerForm({ id: '', trailer_plate: '', carrier_id: '' });
   };
 
   // --- Mi Empresa (Cargador Contractual fijo) ---
@@ -137,7 +143,7 @@ export default function FlotaPanel() {
     e.preventDefault();
     if (!userId) return;
     const payload = {
-      tractor_plate: tractorForm.tractor_plate, trailer_plate: tractorForm.trailer_plate || null,
+      tractor_plate: tractorForm.tractor_plate,
       carrier_id: tractorForm.carrier_id || null, user_id: userId
     };
     if (tractorForm.id) {
@@ -149,11 +155,36 @@ export default function FlotaPanel() {
     await loadAll(userId);
   };
 
-  const editTractor = (t: any) => setTractorForm({ id: t.id, tractor_plate: t.tractor_plate, trailer_plate: t.trailer_plate || '', carrier_id: t.carrier_id || '' });
+  const editTractor = (t: any) => setTractorForm({ id: t.id, tractor_plate: t.tractor_plate, carrier_id: t.carrier_id || '' });
 
   const deleteTractor = async (id: string) => {
     if (!confirm('¿Eliminar esta tractora?')) return;
     await supabase.from('tractors').delete().eq('id', id);
+    if (userId) await loadAll(userId);
+  };
+
+  // --- Remolques (entidad propia — un remolque puede compartirse entre varias tractoras) ---
+  const saveTrailer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    const payload = {
+      trailer_plate: trailerForm.trailer_plate,
+      carrier_id: trailerForm.carrier_id || null, user_id: userId
+    };
+    if (trailerForm.id) {
+      await supabase.from('trailers').update(payload).eq('id', trailerForm.id);
+    } else {
+      await supabase.from('trailers').insert([payload]);
+    }
+    resetForms();
+    await loadAll(userId);
+  };
+
+  const editTrailer = (t: any) => setTrailerForm({ id: t.id, trailer_plate: t.trailer_plate, carrier_id: t.carrier_id || '' });
+
+  const deleteTrailer = async (id: string) => {
+    if (!confirm('¿Eliminar este remolque?')) return;
+    await supabase.from('trailers').delete().eq('id', id);
     if (userId) await loadAll(userId);
   };
 
@@ -162,7 +193,8 @@ export default function FlotaPanel() {
   const q = search.trim().toLowerCase();
   const filteredCarriers = carriers.filter(c => !q || c.company_name?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q));
   const filteredDrivers = drivers.filter(d => !q || d.name?.toLowerCase().includes(q) || d.dni?.toLowerCase().includes(q));
-  const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q) || t.trailer_plate?.toLowerCase().includes(q));
+  const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q));
+  const filteredTrailers = trailers.filter(t => !q || t.trailer_plate?.toLowerCase().includes(q));
 
   if (loading) return <div className="p-10 text-center">Cargando panel de flota...</div>;
 
@@ -180,7 +212,7 @@ export default function FlotaPanel() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div className="flex gap-2">
-            {(['empresa', 'transportistas', 'conductores', 'tractoras'] as Tab[]).map(t => (
+            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); resetForms(); setSearch(''); }}
@@ -309,8 +341,7 @@ export default function FlotaPanel() {
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {tractorForm.id ? 'Editar' : 'Nueva'} Tractora</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input required placeholder="Matrícula Tractora" value={tractorForm.tractor_plate} onChange={e => setTractorForm({ ...tractorForm, tractor_plate: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
-                <input placeholder="Matrícula Remolque (opcional)" value={tractorForm.trailer_plate} onChange={e => setTractorForm({ ...tractorForm, trailer_plate: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
-                <select value={tractorForm.carrier_id} onChange={e => setTractorForm({ ...tractorForm, carrier_id: e.target.value })} className="px-3 py-2 border rounded-lg text-sm bg-white text-slate-900 sm:col-span-2">
+                <select value={tractorForm.carrier_id} onChange={e => setTractorForm({ ...tractorForm, carrier_id: e.target.value })} className="px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
                   <option value="">Sin vincular a ningún transportista</option>
                   {carriers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
                 </select>
@@ -323,12 +354,11 @@ export default function FlotaPanel() {
 
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula Tractora</th><th className="p-3">Remolque</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula Tractora</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredTractors.map(t => (
                     <tr key={t.id}>
                       <td className="p-3 font-semibold">{t.tractor_plate}</td>
-                      <td className="p-3">{t.trailer_plate || '—'}</td>
                       <td className="p-3">{carrierName(t.carrier_id)}</td>
                       <td className="p-3 text-right flex justify-end gap-2">
                         <button onClick={() => editTractor(t)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
@@ -336,7 +366,47 @@ export default function FlotaPanel() {
                       </td>
                     </tr>
                   ))}
-                  {filteredTractors.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{tractors.length === 0 ? 'Sin tractoras guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredTractors.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400">{tractors.length === 0 ? 'Sin tractoras guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* REMOLQUES */}
+        {tab === 'remolques' && (
+          <div className="space-y-6">
+            <form onSubmit={saveTrailer} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {trailerForm.id ? 'Editar' : 'Nuevo'} Remolque</h3>
+              <p className="text-xs text-slate-500">Un remolque es independiente de la tractora — así puedes reutilizar el mismo remolque con distintas tractoras.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input required placeholder="Matrícula Remolque" value={trailerForm.trailer_plate} onChange={e => setTrailerForm({ ...trailerForm, trailer_plate: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <select value={trailerForm.carrier_id} onChange={e => setTrailerForm({ ...trailerForm, carrier_id: e.target.value })} className="px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+                  <option value="">Sin vincular a ningún transportista</option>
+                  {carriers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> {trailerForm.id ? 'Guardar Cambios' : 'Añadir'}</button>
+                {trailerForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
+              </div>
+            </form>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula Remolque</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredTrailers.map(t => (
+                    <tr key={t.id}>
+                      <td className="p-3 font-semibold">{t.trailer_plate}</td>
+                      <td className="p-3">{carrierName(t.carrier_id)}</td>
+                      <td className="p-3 text-right flex justify-end gap-2">
+                        <button onClick={() => editTrailer(t)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => deleteTrailer(t.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredTrailers.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400">{trailers.length === 0 ? 'Sin remolques guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>

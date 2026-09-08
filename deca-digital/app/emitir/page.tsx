@@ -70,6 +70,7 @@ export default function EmitirDeca() {
   const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
   const [savedDrivers, setSavedDrivers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
+  const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
   const [selectedCarrierId, setSelectedCarrierId] = useState('');
   const [fleetSaveMessage, setFleetSaveMessage] = useState('');
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -81,15 +82,17 @@ export default function EmitirDeca() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const uid = session.user.id;
-      const [c, d, t, company] = await Promise.all([
+      const [c, d, t, tr, company] = await Promise.all([
         supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
         supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
         supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
+        supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
         supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
       ]);
       setSavedCarriers(c.data || []);
       setSavedDrivers(d.data || []);
       setSavedTractors(t.data || []);
+      setSavedTrailers(tr.data || []);
       // OPERPAL es siempre el Cargador Contractual (art. 4 Orden FOM/2861/2012):
       // se precarga solo, pero sigue siendo editable por si hiciera falta.
       if (company.data) {
@@ -128,7 +131,13 @@ export default function EmitirDeca() {
     const t = savedTractors.find(t => t.id === tractorId);
     if (t) {
       setTractorPlate(t.tractor_plate);
-      setTrailerPlate(t.trailer_plate || '');
+    }
+  };
+
+  const handleSelectTrailer = (trailerId: string) => {
+    const t = savedTrailers.find(t => t.id === trailerId);
+    if (t) {
+      setTrailerPlate(t.trailer_plate);
     }
   };
 
@@ -141,14 +150,16 @@ export default function EmitirDeca() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const uid = session.user.id;
-    const [c, d, t] = await Promise.all([
+    const [c, d, t, tr] = await Promise.all([
       supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
       supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
       supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
+      supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
     ]);
     setSavedCarriers(c.data || []);
     setSavedDrivers(d.data || []);
     setSavedTractors(t.data || []);
+    setSavedTrailers(tr.data || []);
   };
 
   const saveCarrierToFleet = async () => {
@@ -185,11 +196,25 @@ export default function EmitirDeca() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     await supabase.from('tractors').insert([{
-      tractor_plate: tractorPlate, trailer_plate: trailerPlate || null,
+      tractor_plate: tractorPlate,
       carrier_id: selectedCarrierId || null, user_id: session.user.id
     }]);
     await refreshFleet();
     flashFleetMessage('✓ Tractora guardada');
+  };
+
+  const saveTrailerToFleet = async () => {
+    if (!trailerPlate) { flashFleetMessage('Rellena la matrícula del remolque primero'); return; }
+    const yaExiste = savedTrailers.some(t => t.trailer_plate.toLowerCase() === trailerPlate.toLowerCase());
+    if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('trailers').insert([{
+      trailer_plate: trailerPlate,
+      carrier_id: selectedCarrierId || null, user_id: session.user.id
+    }]);
+    await refreshFleet();
+    flashFleetMessage('✓ Remolque guardado');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -592,20 +617,40 @@ export default function EmitirDeca() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">F. Matrícula/s del/os Vehículo/s</h3>
 
-            {savedTractors.length > 0 && (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
-                <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde tractora guardada</label>
-                <select defaultValue="" onChange={e => handleSelectTractor(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                  <option value="">-- Escribir a mano --</option>
-                  {selectedCarrierId && savedTractors.some(t => t.carrier_id === selectedCarrierId) && (
-                    <optgroup label="Vinculadas a este transportista">
-                      {savedTractors.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.tractor_plate}{t.trailer_plate ? ` / ${t.trailer_plate}` : ''}</option>)}
-                    </optgroup>
-                  )}
-                  <optgroup label="Todas las tractoras">
-                    {savedTractors.map(t => <option key={t.id} value={t.id}>{t.tractor_plate}{t.trailer_plate ? ` / ${t.trailer_plate}` : ''}</option>)}
-                  </optgroup>
-                </select>
+            {(savedTractors.length > 0 || savedTrailers.length > 0) && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {savedTractors.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde tractora guardada</label>
+                    <select defaultValue="" onChange={e => handleSelectTractor(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+                      <option value="">-- Escribir a mano --</option>
+                      {selectedCarrierId && savedTractors.some(t => t.carrier_id === selectedCarrierId) && (
+                        <optgroup label="Vinculadas a este transportista">
+                          {savedTractors.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.tractor_plate}</option>)}
+                        </optgroup>
+                      )}
+                      <optgroup label="Todas las tractoras">
+                        {savedTractors.map(t => <option key={t.id} value={t.id}>{t.tractor_plate}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+                {savedTrailers.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde remolque guardado</label>
+                    <select defaultValue="" onChange={e => handleSelectTrailer(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+                      <option value="">-- Escribir a mano --</option>
+                      {selectedCarrierId && savedTrailers.some(t => t.carrier_id === selectedCarrierId) && (
+                        <optgroup label="Vinculados a este transportista">
+                          {savedTrailers.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
+                        </optgroup>
+                      )}
+                      <optgroup label="Todos los remolques">
+                        {savedTrailers.map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -623,6 +668,9 @@ export default function EmitirDeca() {
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={saveTractorToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                 <Save className="w-3.5 h-3.5" /> Guardar tractora en mi flota
+              </button>
+              <button type="button" onClick={saveTrailerToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                <Save className="w-3.5 h-3.5" /> Guardar remolque en mi flota
               </button>
               {fleetSaveMessage && <span className="text-xs text-emerald-600 font-semibold self-center">{fleetSaveMessage}</span>}
             </div>
