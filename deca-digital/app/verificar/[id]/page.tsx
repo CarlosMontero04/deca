@@ -118,7 +118,7 @@ export default function VerificarPage() {
   // Pantalla de transición (carga inicial)
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-      <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+      <Loader2 className="w-12 h-12 text-[#2A1670] animate-spin mb-4" />
       <h1 className="text-lg font-bold text-slate-800">Descargando documento oficial...</h1>
       <p className="text-sm text-slate-500 mt-2 max-w-sm">
         Generando archivo PDF nativo mediante descarga directa para inspección.

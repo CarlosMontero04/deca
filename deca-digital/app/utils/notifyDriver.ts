@@ -17,7 +17,7 @@ export function notifyDriver(
   message: string,
   verificationUrl: string
 ) {
-  const fullMessage = `${message}\n\n${verificationUrl}`;
+  const fullMessage = `${message}\n\n${verificationUrl}\n\n— OPERPAL`;
 
   if (method === 'telefono') {
     if (!phone) return false;
@@ -51,6 +51,6 @@ export function notifyDriver(
 // asociación, así que en vez de depender solo de mailto:, esto genera el
 // mensaje ya redactado para que la persona lo copie y lo pegue donde quiera.
 export function buildEmailFallback(email: string | undefined, message: string, verificationUrl: string) {
-  const fullMessage = `${message}\n\n${verificationUrl}`;
+  const fullMessage = `${message}\n\n${verificationUrl}\n\n— OPERPAL`;
   return `Para: ${email || '(sin email guardado)'}\nAsunto: Tu Documento de Control (DeCA)\n\n${fullMessage}`;
 }
