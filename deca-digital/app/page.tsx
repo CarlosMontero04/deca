@@ -208,9 +208,8 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
       <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center text-white">
-            <Truck className="w-4 h-4" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-operpal-icon.png" alt="OPERPAL" className="w-9 h-9 object-contain" />
           <h1 className="text-lg font-bold text-slate-800">DeCA Digital</h1>
         </div>
         

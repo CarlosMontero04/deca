@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { Truck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 
@@ -60,9 +59,8 @@ export default function LoginPage() {
     <div className="h-screen w-full flex items-center justify-center bg-slate-50">
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-slate-200">
         <div className="flex flex-col items-center justify-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-white mb-4">
-            <Truck className="w-6 h-6" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-operpal.png" alt="OPERPAL" className="h-16 w-auto mb-4" />
           <h1 className="text-2xl font-bold text-slate-800">DeCA Digital</h1>
           <p className="text-sm text-slate-500">Gestión de Documentos de Transporte</p>
         </div>
@@ -132,9 +130,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <div className="mt-4 text-xs text-center text-slate-400">
-          Nota: Usa el correo <strong className="text-slate-500">admin@admin.com</strong> para registrarte como Administrador.
-        </div>
+        
       </div>
     </div>
   );
