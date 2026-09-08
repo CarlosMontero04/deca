@@ -74,6 +74,8 @@ export default function EmitirDeca() {
   const [selectedCarrierId, setSelectedCarrierId] = useState('');
   const [fleetSaveMessage, setFleetSaveMessage] = useState('');
   const [copiedMessage, setCopiedMessage] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   const supabase = createClient();
 
@@ -387,20 +389,33 @@ export default function EmitirDeca() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
             <div className="text-emerald-600 text-lg font-bold">✅ DeCA {createdInfo.id} emitido correctamente</div>
             <p className="text-sm text-slate-500">
-              El conductor debe disponer de este documento antes de iniciar el servicio. Pulsa el botón para abrir {createdInfo.method === 'telefono' ? 'WhatsApp' : 'tu cliente de correo'} con el mensaje ya preparado.
+              El conductor debe disponer de este documento antes de iniciar el servicio. Pulsa el botón para {createdInfo.method === 'telefono' ? 'abrir WhatsApp' : 'enviarle el correo'} con el mensaje ya preparado.
             </p>
             <button
               type="button"
-              onClick={() => notifyDriver(createdInfo.method, createdInfo.phone, createdInfo.email,
-                `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
-                createdInfo.verificationUrl)}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition"
+              disabled={notifySending}
+              onClick={async () => {
+                setNotifySending(true);
+                setNotifyResult(null);
+                const result = await notifyDriver(createdInfo.method, createdInfo.phone, createdInfo.email,
+                  `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
+                  createdInfo.verificationUrl);
+                setNotifySending(false);
+                setNotifyResult(result);
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50"
             >
-              Notificar al conductor {createdInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}
+              {notifySending ? 'Enviando...' : `Notificar al conductor ${createdInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}`}
             </button>
-            {createdInfo.method === 'email' && (
+            {notifyResult?.success && (
+              <p className="text-sm text-emerald-600 font-semibold">✓ {createdInfo.method === 'email' ? 'Correo enviado' : 'WhatsApp abierto'}</p>
+            )}
+            {notifyResult && !notifyResult.success && (
+              <p className="text-sm text-rose-600 font-semibold">✗ {notifyResult.error}</p>
+            )}
+            {createdInfo.method === 'email' && (!notifyResult || !notifyResult.success) && (
               <div className="text-left">
-                <p className="text-xs text-slate-400 mb-1">Si no se ha abierto tu cliente de correo, copia este mensaje y pégalo donde quieras:</p>
+                <p className="text-xs text-slate-400 mb-1">Si el envío falla, copia este mensaje y pégalo donde quieras:</p>
                 <textarea
                   readOnly
                   value={buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl)}

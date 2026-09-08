@@ -54,6 +54,8 @@ export default function ModificarDeca() {
     id: string; version: number; verificationUrl: string; phone: string; email?: string; method: NotificationMethod; motivo: string;
   } | null>(null);
   const [copiedMessage, setCopiedMessage] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   const supabase = createClient();
 
@@ -312,20 +314,33 @@ export default function ModificarDeca() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
             <div className="text-emerald-600 text-lg font-bold">✅ DeCA {updatedInfo.id} actualizado a v{updatedInfo.version}.0</div>
             <p className="text-sm text-slate-500">
-              El conductor debe recibir la versión actualizada antes de continuar el servicio. Pulsa el botón para abrir {updatedInfo.method === 'telefono' ? 'WhatsApp' : 'tu cliente de correo'} con el mensaje ya preparado.
+              El conductor debe recibir la versión actualizada antes de continuar el servicio. Pulsa el botón para {updatedInfo.method === 'telefono' ? 'abrir WhatsApp' : 'enviarle el correo'} con el mensaje ya preparado.
             </p>
             <button
               type="button"
-              onClick={() => notifyDriver(updatedInfo.method, updatedInfo.phone, updatedInfo.email,
-                `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`,
-                updatedInfo.verificationUrl)}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition"
+              disabled={notifySending}
+              onClick={async () => {
+                setNotifySending(true);
+                setNotifyResult(null);
+                const result = await notifyDriver(updatedInfo.method, updatedInfo.phone, updatedInfo.email,
+                  `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`,
+                  updatedInfo.verificationUrl);
+                setNotifySending(false);
+                setNotifyResult(result);
+              }}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50"
             >
-              Notificar al conductor {updatedInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}
+              {notifySending ? 'Enviando...' : `Notificar al conductor ${updatedInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}`}
             </button>
-            {updatedInfo.method === 'email' && (
+            {notifyResult?.success && (
+              <p className="text-sm text-emerald-600 font-semibold">✓ {updatedInfo.method === 'email' ? 'Correo enviado' : 'WhatsApp abierto'}</p>
+            )}
+            {notifyResult && !notifyResult.success && (
+              <p className="text-sm text-rose-600 font-semibold">✗ {notifyResult.error}</p>
+            )}
+            {updatedInfo.method === 'email' && (!notifyResult || !notifyResult.success) && (
               <div className="text-left">
-                <p className="text-xs text-slate-400 mb-1">Si no se ha abierto tu cliente de correo, copia este mensaje y pégalo donde quieras:</p>
+                <p className="text-xs text-slate-400 mb-1">Si el envío falla, copia este mensaje y pégalo donde quieras:</p>
                 <textarea
                   readOnly
                   value={buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl)}
