@@ -44,3 +44,13 @@ export function notifyDriver(
 
   return false;
 }
+
+// Respaldo para cuando mailto: no hace nada — esto pasa cuando el navegador
+// no tiene ningún cliente de correo asociado por defecto (frecuente si solo
+// usas webmail). No hay forma de detectar eso desde código ni de forzar la
+// asociación, así que en vez de depender solo de mailto:, esto genera el
+// mensaje ya redactado para que la persona lo copie y lo pegue donde quiera.
+export function buildEmailFallback(email: string | undefined, message: string, verificationUrl: string) {
+  const fullMessage = `${message}\n\n${verificationUrl}`;
+  return `Para: ${email || '(sin email guardado)'}\nAsunto: Tu Documento de Control (DeCA)\n\n${fullMessage}`;
+}

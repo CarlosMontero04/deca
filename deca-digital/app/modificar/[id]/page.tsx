@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
 import { FileEdit, ArrowLeft, Save } from 'lucide-react';
 import { generateDecaPdf } from '@/app/utils/pdfGenerator';
-import { notifyDriver, NotificationMethod } from '@/app/utils/notifyDriver';
+import { notifyDriver, NotificationMethod, buildEmailFallback } from '@/app/utils/notifyDriver';
 
 export default function ModificarDeca() {
   const router = useRouter();
@@ -53,6 +53,7 @@ export default function ModificarDeca() {
   const [updatedInfo, setUpdatedInfo] = useState<{
     id: string; version: number; verificationUrl: string; phone: string; email?: string; method: NotificationMethod; motivo: string;
   } | null>(null);
+  const [copiedMessage, setCopiedMessage] = useState(false);
 
   const supabase = createClient();
 
@@ -223,6 +224,12 @@ export default function ModificarDeca() {
       // Regeneramos el PDF con todos los datos actualizados y el historial completo
       const { blob, sizeBytes } = await generateDecaPdf(decaData, decaData.qrUrl);
 
+      // La Resolución exige que el PDF no supere los 5 MB (Segundo.1)
+      const MAX_PDF_BYTES = 5 * 1024 * 1024;
+      if (sizeBytes > MAX_PDF_BYTES) {
+        throw new Error(`El PDF generado pesa ${(sizeBytes / 1024 / 1024).toFixed(2)} MB, por encima del límite legal de 5 MB. Reduce el historial u observaciones e inténtalo de nuevo.`);
+      }
+
       // Sobrescribimos el MISMO fichero en Storage (mismo path = misma URL/QR de siempre,
       // método 1 del apartado Quinto: modificar el PDF existente sin cambiar su URL)
       if (deca.pdf_storage_path) {
@@ -265,9 +272,9 @@ export default function ModificarDeca() {
       });
       setSaving(false);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Error al guardar la modificación");
+      setError(err.message || 'Error al guardar la modificación');
       setSaving(false);
     }
   };
@@ -316,6 +323,28 @@ export default function ModificarDeca() {
             >
               Notificar al conductor {updatedInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}
             </button>
+            {updatedInfo.method === 'email' && (
+              <div className="text-left">
+                <p className="text-xs text-slate-400 mb-1">Si no se ha abierto tu cliente de correo, copia este mensaje y pégalo donde quieras:</p>
+                <textarea
+                  readOnly
+                  value={buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl)}
+                  rows={5}
+                  className="w-full px-3 py-2 border rounded-lg text-xs text-slate-700 bg-slate-50 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl));
+                    setCopiedMessage(true);
+                    setTimeout(() => setCopiedMessage(false), 2000);
+                  }}
+                  className="mt-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg"
+                >
+                  {copiedMessage ? '✓ Copiado' : 'Copiar mensaje'}
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => router.push('/')}

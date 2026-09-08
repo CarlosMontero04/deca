@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { FileText, ArrowLeft, Save, Truck } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { generateDecaPdf } from '../utils/pdfGenerator';
-import { notifyDriver, NotificationMethod } from '../utils/notifyDriver';
+import { notifyDriver, NotificationMethod, buildEmailFallback } from '../utils/notifyDriver';
+import { generateDecaId } from '../utils/generateDecaId';
 import { DecaDocument } from '../types';
 
 // Dominio canónico único de la app — usado en el QR y en la URL de verificación
@@ -71,6 +72,7 @@ export default function EmitirDeca() {
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [selectedCarrierId, setSelectedCarrierId] = useState('');
   const [fleetSaveMessage, setFleetSaveMessage] = useState('');
+  const [copiedMessage, setCopiedMessage] = useState(false);
 
   const supabase = createClient();
 
@@ -186,7 +188,7 @@ export default function EmitirDeca() {
     setError(null);
 
     try {
-      const decaId = `DECA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const decaId = generateDecaId();
       const now = new Date().toISOString();
 
       // Necesitamos el usuario ANTES de generar el PDF para poder subirlo a su carpeta en Storage
@@ -256,6 +258,12 @@ export default function EmitirDeca() {
 
       const { blob, sizeBytes } = await generateDecaPdf(newDeca, verificationUrl);
       newDeca.fileSizeBytes = sizeBytes;
+
+      // La Resolución exige que el PDF no supere los 5 MB (Segundo.1)
+      const MAX_PDF_BYTES = 5 * 1024 * 1024;
+      if (sizeBytes > MAX_PDF_BYTES) {
+        throw new Error(`El PDF generado pesa ${(sizeBytes / 1024 / 1024).toFixed(2)} MB, por encima del límite legal de 5 MB. Reduce el número de envíos u observaciones e inténtalo de nuevo.`);
+      }
 
       // Subimos el fichero real al repositorio (Supabase Storage) — esto es lo que
       // convierte el PDF en un documento almacenado de verdad, no regenerado al vuelo.
@@ -334,7 +342,8 @@ export default function EmitirDeca() {
           </div>
         )}
 
-        {createdInfo ? (          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
+        {createdInfo ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
             <div className="text-emerald-600 text-lg font-bold">✅ DeCA {createdInfo.id} emitido correctamente</div>
             <p className="text-sm text-slate-500">
               El conductor debe disponer de este documento antes de iniciar el servicio. Pulsa el botón para abrir {createdInfo.method === 'telefono' ? 'WhatsApp' : 'tu cliente de correo'} con el mensaje ya preparado.
@@ -348,6 +357,28 @@ export default function EmitirDeca() {
             >
               Notificar al conductor {createdInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}
             </button>
+            {createdInfo.method === 'email' && (
+              <div className="text-left">
+                <p className="text-xs text-slate-400 mb-1">Si no se ha abierto tu cliente de correo, copia este mensaje y pégalo donde quieras:</p>
+                <textarea
+                  readOnly
+                  value={buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl)}
+                  rows={5}
+                  className="w-full px-3 py-2 border rounded-lg text-xs text-slate-700 bg-slate-50 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl));
+                    setCopiedMessage(true);
+                    setTimeout(() => setCopiedMessage(false), 2000);
+                  }}
+                  className="mt-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg"
+                >
+                  {copiedMessage ? '✓ Copiado' : 'Copiar mensaje'}
+                </button>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => router.push('/')}
