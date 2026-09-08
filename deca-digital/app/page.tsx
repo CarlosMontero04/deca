@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from './utils/supabase/client';
-import { LogOut, Truck, FileText, PlusCircle, Download, FileEdit } from 'lucide-react';
+import { LogOut, Truck, FileText, PlusCircle, Download, FileEdit, Eye } from 'lucide-react';
 import { generateDecaPdf } from './utils/pdfGenerator';
 
 export default function Dashboard() {
@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [decas, setDecas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -61,15 +62,21 @@ export default function Dashboard() {
           .from('decas-pdf')
           .getPublicUrl(doc.pdf_storage_path);
 
-        // Añadimos ?v=version para que cada versión sea, a efectos de caché del
-        // navegador/CDN, una URL distinta — si no, tras modificar podrías seguir
-        // viendo la versión antigua durante un rato aunque el archivo ya cambió.
+        // Traemos el PDF como datos (fetch) en vez de enlazar directo a la URL de
+        // Storage: al ser de otro dominio, el navegador ignora el atributo
+        // "download" en enlaces cross-origin y simplemente abre el archivo en vez
+        // de descargarlo. Un blob: sí es del mismo origen que la página, así que
+        // fuerza la descarga real.
+        const response = await fetch(`${publicUrlData.publicUrl}?v=${doc.version}`);
+        const fileBlob = await response.blob();
+        const blobUrl = URL.createObjectURL(fileBlob);
         const a = document.createElement('a');
-        a.href = `${publicUrlData.publicUrl}?v=${doc.version}`;
+        a.href = blobUrl;
         a.download = `${doc.id}_v${doc.version}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
         return;
       }
 
@@ -108,6 +115,52 @@ export default function Dashboard() {
       alert("Hubo un error al generar el PDF.");
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handlePreviewPdf = async (doc: any) => {
+    try {
+      setPreviewingId(doc.id);
+
+      // Documento real ya almacenado: lo abrimos directamente en una pestaña nueva,
+      // el navegador lo muestra con su visor de PDF nativo, sin forzar descarga.
+      if (doc.pdf_storage_path) {
+        const { data: publicUrlData } = supabase.storage
+          .from('decas-pdf')
+          .getPublicUrl(doc.pdf_storage_path);
+        window.open(`${publicUrlData.publicUrl}?v=${doc.version}`, '_blank');
+        return;
+      }
+
+      // Reserva de compatibilidad: documentos antiguos sin fichero almacenado.
+      const verificationUrl = doc.qr_url || `https://deca-ochre.vercel.app/verificar/${doc.id}`;
+      const decaData = {
+        id: doc.id,
+        version: doc.version,
+        creationDate: doc.creation_date,
+        status: doc.status,
+        carrier: doc.carrier,
+        contractualShipper: doc.contractual_shipper,
+        shipments: doc.shipments,
+        route: doc.route,
+        history: doc.history || [],
+        digitalSignature: doc.digital_signature,
+        fileSizeBytes: doc.file_size_bytes || 0,
+        legalRetentionExpiresDate: doc.legal_retention_expires_date || '',
+        qrUrl: verificationUrl,
+        observations: doc.observations || '',
+        stops: doc.stops || []
+      };
+      const { blob } = await generateDecaPdf(decaData, verificationUrl);
+      const previewWindow = window.open(URL.createObjectURL(blob), '_blank');
+      if (!previewWindow) {
+        alert('El navegador ha bloqueado la ventana emergente. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.');
+      }
+    } catch (err) {
+      console.error("Error al previsualizar el PDF:", err);
+      alert("Hubo un error al generar la vista previa.");
+    } finally {
+      setPreviewingId(null);
     }
   };
 
@@ -297,7 +350,16 @@ export default function Dashboard() {
                             <FileEdit className="w-4 h-4 text-white" />
                             Editar
                           </button>
-                          
+
+                          <button
+                            onClick={() => handlePreviewPdf(doc)}
+                            disabled={previewingId === doc.id}
+                            className="inline-flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                          >
+                            <Eye className="w-4 h-4 text-white" />
+                            {previewingId === doc.id ? 'Abriendo...' : 'Previsualizar'}
+                          </button>
+
                           <button
                             onClick={() => handleDownloadPdf(doc)}
                             disabled={downloadingId === doc.id}
