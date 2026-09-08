@@ -5,21 +5,24 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { ArrowLeft, Truck, User, Trash2, Pencil, Plus, X } from 'lucide-react';
 
-type Tab = 'transportistas' | 'conductores' | 'tractoras';
+type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras';
 
 export default function FlotaPanel() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [tab, setTab] = useState<Tab>('transportistas');
+  const [tab, setTab] = useState<Tab>('empresa');
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [companySaved, setCompanySaved] = useState(false);
 
   const [carriers, setCarriers] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [tractors, setTractors] = useState<any[]>([]);
 
+  // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
+  const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '' });
   // Formulario de Transportista
   const [carrierForm, setCarrierForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '' });
   // Formulario de Conductor
@@ -28,14 +31,24 @@ export default function FlotaPanel() {
   const [tractorForm, setTractorForm] = useState({ id: '', tractor_plate: '', trailer_plate: '', carrier_id: '' });
 
   const loadAll = async (uid: string) => {
-    const [c, d, t] = await Promise.all([
+    const [c, d, t, e] = await Promise.all([
       supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
       supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
       supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
+      supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
     ]);
     setCarriers(c.data || []);
     setDrivers(d.data || []);
     setTractors(t.data || []);
+    if (e.data) {
+      setCompanyForm({
+        company_name: e.data.company_name || '',
+        cif: e.data.cif || '',
+        address: e.data.address || '',
+        phone: e.data.phone || '',
+        email: e.data.email || ''
+      });
+    }
   };
 
   useEffect(() => {
@@ -53,6 +66,23 @@ export default function FlotaPanel() {
     setCarrierForm({ id: '', company_name: '', cif: '', address: '', phone: '' });
     setDriverForm({ id: '', name: '', dni: '', email: '', phone: '', carrier_id: '' });
     setTractorForm({ id: '', tractor_plate: '', trailer_plate: '', carrier_id: '' });
+  };
+
+  // --- Mi Empresa (Cargador Contractual fijo) ---
+  const saveCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    await supabase.from('company_profile').upsert({
+      user_id: userId,
+      company_name: companyForm.company_name,
+      cif: companyForm.cif,
+      address: companyForm.address,
+      phone: companyForm.phone,
+      email: companyForm.email,
+      updated_at: new Date().toISOString()
+    });
+    setCompanySaved(true);
+    setTimeout(() => setCompanySaved(false), 3000);
   };
 
   // --- Transportistas ---
@@ -150,24 +180,45 @@ export default function FlotaPanel() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div className="flex gap-2">
-            {(['transportistas', 'conductores', 'tractoras'] as Tab[]).map(t => (
+            {(['empresa', 'transportistas', 'conductores', 'tractoras'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); resetForms(); setSearch(''); }}
                 className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
               >
-                {t}
+                {t === 'empresa' ? 'Mi Empresa' : t}
               </button>
             ))}
           </div>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder={tab === 'transportistas' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : 'Buscar por matrícula...'}
-            className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
-          />
+          {tab !== 'empresa' && (
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={tab === 'transportistas' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : 'Buscar por matrícula...'}
+              className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
+            />
+          )}
         </div>
+
+        {/* MI EMPRESA */}
+        {tab === 'empresa' && (
+          <form onSubmit={saveCompany} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> Datos de OPERPAL (Cargador Contractual)</h3>
+            <p className="text-xs text-slate-500">Estos datos se precargan automáticamente en el Bloque A al emitir un DeCA, ya que OPERPAL es siempre el Cargador Contractual.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input required placeholder="Nombre / Denominación Social" value={companyForm.company_name} onChange={e => setCompanyForm({ ...companyForm, company_name: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <input required placeholder="NIF / CIF" value={companyForm.cif} onChange={e => setCompanyForm({ ...companyForm, cif: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <input placeholder="Dirección y Población" value={companyForm.address} onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 sm:col-span-2" />
+              <input placeholder="Teléfono" value={companyForm.phone} onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <input type="email" placeholder="Email" value={companyForm.email} onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> Guardar Datos</button>
+              {companySaved && <span className="text-sm text-emerald-600 font-semibold">✓ Guardado</span>}
+            </div>
+          </form>
+        )}
 
         {/* TRANSPORTISTAS */}
         {tab === 'transportistas' && (

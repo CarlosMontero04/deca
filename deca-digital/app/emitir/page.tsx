@@ -81,14 +81,24 @@ export default function EmitirDeca() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const uid = session.user.id;
-      const [c, d, t] = await Promise.all([
+      const [c, d, t, company] = await Promise.all([
         supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
         supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
         supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
+        supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
       ]);
       setSavedCarriers(c.data || []);
       setSavedDrivers(d.data || []);
       setSavedTractors(t.data || []);
+      // OPERPAL es siempre el Cargador Contractual (art. 4 Orden FOM/2861/2012):
+      // se precarga solo, pero sigue siendo editable por si hiciera falta.
+      if (company.data) {
+        setShipperName(company.data.company_name || '');
+        setShipperCif(company.data.cif || '');
+        setShipperAddress(company.data.address || '');
+        setShipperPhone(company.data.phone || '');
+        setShipperEmail(company.data.email || '');
+      }
     };
     loadFleet();
   }, []);
@@ -398,7 +408,10 @@ export default function EmitirDeca() {
 
           {/* BLOQUE A: Cargador Contractual */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 border-b pb-2">A. Cargador Contractual</h3>
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-bold text-slate-800">A. Cargador Contractual</h3>
+              <a href="/flota" className="text-xs font-semibold text-blue-600 hover:text-blue-700">Editar datos de OPERPAL →</a>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre / Denominación Social</label>
