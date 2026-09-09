@@ -93,6 +93,11 @@ export default function ModificarDeca() {
     e.preventDefault();
     setError(null);
 
+    if (transportDate && transportDate < new Date().toISOString().slice(0, 10)) {
+      const confirmar = confirm('La fecha de transporte ya ha pasado. La norma exige que el DeCA exista antes de iniciar el servicio; guardarlo así puede ser sancionable. ¿Seguro que quieres continuar?');
+      if (!confirmar) return;
+    }
+
     // Comparamos cada campo editable contra su valor original para saber qué cambió de verdad
     const original = {
       tractorPlate: deca.carrier?.tractorPlate || '',
@@ -419,6 +424,11 @@ export default function ModificarDeca() {
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Realización del Transporte</label>
               <input type="date" value={transportDate} onChange={e => setTransportDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              {transportDate && transportDate < new Date().toISOString().slice(0, 10) && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                  Esta fecha ya ha pasado. La norma exige que el DeCA exista antes de iniciar el servicio.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Peso Bruto (Kg)</label>

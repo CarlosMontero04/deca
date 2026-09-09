@@ -92,7 +92,15 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   y += 4.5;
   doc.text(`Domicilio: ${deca.contractualShipper.address}`, margin, y);
   y += 4.5;
-  doc.text(`Origen Principal: ${deca.route.originMain}  ->  Destino Principal: ${deca.route.destinationMain}`, margin, y);
+  // Origen/destino se leen siempre de shipments[0] — la misma fuente que usa la
+  // tabla de la sección 3 — para que las dos secciones del PDF nunca puedan
+  // mostrarse contradictorias entre sí, aunque algún día route y shipments
+  // llegaran a desincronizarse en la base de datos. route.originMain/
+  // destinationMain quedan solo como respaldo por si un documento antiguo no
+  // tuviera envíos cargados.
+  const origenPrincipal = deca.shipments?.[0]?.originAddress || deca.route.originMain;
+  const destinoPrincipal = deca.shipments?.[0]?.destinationAddress || deca.route.destinationMain;
+  doc.text(`Origen Principal: ${origenPrincipal}  ->  Destino Principal: ${destinoPrincipal}`, margin, y);
   y += 4.5;
   if (deca.stops && deca.stops.length > 0) {
     doc.text(`Paradas Intermedias: ${deca.stops.join(' -> ')}`, margin, y);
