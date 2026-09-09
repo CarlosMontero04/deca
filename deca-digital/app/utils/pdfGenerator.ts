@@ -189,7 +189,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
-  doc.text(`TOTAL AGRUPACIÓN: ${deca.shipments.length} ENVÍOS  ·   BULTOS TOTALES: ${totalBultos}`, margin, y);
+  doc.text(`BULTOS TOTALES: ${totalBultos}`, margin, y);
   y += 4.5;
   doc.text(`PESO TOTAL CARGA: ${totalPeso} KG (${(totalPeso / 1000).toFixed(2)} TONELADAS)`, margin, y);
   y += 9;
