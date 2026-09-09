@@ -21,6 +21,7 @@ export default function ModificarDeca() {
   // Solo se registra en el historial lo que realmente cambie al guardar.
   const [tractorPlate, setTractorPlate] = useState('');
   const [trailerPlate, setTrailerPlate] = useState('');
+  const [trailerPlate2, setTrailerPlate2] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverDni, setDriverDni] = useState('');
   const [phone, setPhone] = useState('');
@@ -66,6 +67,7 @@ export default function ModificarDeca() {
         setDeca(data);
         setTractorPlate(data.carrier?.tractorPlate || '');
         setTrailerPlate(data.carrier?.trailerPlate || '');
+        setTrailerPlate2(data.carrier?.trailerPlate2 || '');
         setDriverName(data.carrier?.driverName || '');
         setDriverDni(data.carrier?.driverDni || '');
         setPhone(data.carrier?.phone || '');
@@ -102,6 +104,7 @@ export default function ModificarDeca() {
     const original = {
       tractorPlate: deca.carrier?.tractorPlate || '',
       trailerPlate: deca.carrier?.trailerPlate || '',
+      trailerPlate2: deca.carrier?.trailerPlate2 || '',
       driverName: deca.carrier?.driverName || '',
       driverDni: deca.carrier?.driverDni || '',
       phone: deca.carrier?.phone || '',
@@ -122,6 +125,7 @@ export default function ModificarDeca() {
     const candidatos = [
       { field: 'tractorPlate', label: 'Matrícula Tractora', previousValue: original.tractorPlate, newValue: tractorPlate },
       { field: 'trailerPlate', label: 'Matrícula Remolque', previousValue: original.trailerPlate, newValue: trailerPlate },
+      { field: 'trailerPlate2', label: 'Matrícula 2º Remolque', previousValue: original.trailerPlate2, newValue: trailerPlate2 },
       { field: 'driverName', label: 'Nombre Conductor', previousValue: original.driverName, newValue: driverName },
       { field: 'driverDni', label: 'DNI Conductor', previousValue: original.driverDni, newValue: driverDni },
       { field: 'phone', label: 'Teléfono de Contacto', previousValue: original.phone, newValue: phone },
@@ -185,6 +189,7 @@ export default function ModificarDeca() {
         ...deca.carrier,
         tractorPlate,
         trailerPlate,
+        trailerPlate2: trailerPlate2 || undefined,
         driverName,
         driverDni,
         phone,
@@ -408,6 +413,10 @@ export default function ModificarDeca() {
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Remolque</label>
               <input type="text" value={trailerPlate} onChange={e => setTrailerPlate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula 2º Remolque</label>
+              <input type="text" value={trailerPlate2} onChange={e => setTrailerPlate2(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Conductor</label>

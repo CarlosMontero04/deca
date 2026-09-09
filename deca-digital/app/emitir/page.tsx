@@ -50,6 +50,7 @@ export default function EmitirDeca() {
   // Bloque F: Matrículas
   const [tractorPlate, setTractorPlate] = useState('');
   const [trailerPlate, setTrailerPlate] = useState('');
+  const [trailerPlate2, setTrailerPlate2] = useState('');
 
   // Bloque G: Observaciones
   const [observations, setObservations] = useState('');
@@ -143,6 +144,13 @@ export default function EmitirDeca() {
     }
   };
 
+  const handleSelectTrailer2 = (trailerId: string) => {
+    const t = savedTrailers.find(t => t.id === trailerId);
+    if (t) {
+      setTrailerPlate2(t.trailer_plate);
+    }
+  };
+
   const flashFleetMessage = (msg: string) => {
     setFleetSaveMessage(msg);
     setTimeout(() => setFleetSaveMessage(''), 3000);
@@ -205,14 +213,14 @@ export default function EmitirDeca() {
     flashFleetMessage('✓ Tractora guardada');
   };
 
-  const saveTrailerToFleet = async () => {
-    if (!trailerPlate) { flashFleetMessage('Rellena la matrícula del remolque primero'); return; }
-    const yaExiste = savedTrailers.some(t => t.trailer_plate.toLowerCase() === trailerPlate.toLowerCase());
+  const saveTrailerPlateToFleet = async (plate: string) => {
+    if (!plate) { flashFleetMessage('Rellena la matrícula del remolque primero'); return; }
+    const yaExiste = savedTrailers.some(t => t.trailer_plate.toLowerCase() === plate.toLowerCase());
     if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     await supabase.from('trailers').insert([{
-      trailer_plate: trailerPlate,
+      trailer_plate: plate,
       carrier_id: selectedCarrierId || null, user_id: session.user.id
     }]);
     await refreshFleet();
@@ -255,6 +263,7 @@ export default function EmitirDeca() {
           driverEmail: driverEmail || undefined,
           tractorPlate: tractorPlate,
           trailerPlate: trailerPlate,
+          trailerPlate2: trailerPlate2 || undefined,
           phone: carrierPhone,
         },
         contractualShipper: {
@@ -666,6 +675,22 @@ export default function EmitirDeca() {
                     </select>
                   </div>
                 )}
+                {savedTrailers.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar 2º remolque desde guardado (opcional)</label>
+                    <select defaultValue="" onChange={e => handleSelectTrailer2(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+                      <option value="">-- Escribir a mano --</option>
+                      {selectedCarrierId && savedTrailers.some(t => t.carrier_id === selectedCarrierId) && (
+                        <optgroup label="Vinculados a este transportista">
+                          {savedTrailers.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
+                        </optgroup>
+                      )}
+                      <optgroup label="Todos los remolques">
+                        {savedTrailers.map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
               </div>
             )}
 
@@ -678,15 +703,24 @@ export default function EmitirDeca() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Remolque / Semirremolque</label>
                 <input type="text" value={trailerPlate} onChange={e => setTrailerPlate(e.target.value)} placeholder="Ej. R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">2º Remolque (opcional, tren de carretera)</label>
+                <input type="text" value={trailerPlate2} onChange={e => setTrailerPlate2(e.target.value)} placeholder="Ej. R-1234-XYZ" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={saveTractorToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                 <Save className="w-3.5 h-3.5" /> Guardar tractora en mi flota
               </button>
-              <button type="button" onClick={saveTrailerToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+              <button type="button" onClick={() => saveTrailerPlateToFleet(trailerPlate)} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                 <Save className="w-3.5 h-3.5" /> Guardar remolque en mi flota
               </button>
+              {trailerPlate2 && (
+                <button type="button" onClick={() => saveTrailerPlateToFleet(trailerPlate2)} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+                  <Save className="w-3.5 h-3.5" /> Guardar 2º remolque en mi flota
+                </button>
+              )}
               {fleetSaveMessage && <span className="text-xs text-emerald-600 font-semibold self-center">{fleetSaveMessage}</span>}
             </div>
           </div>

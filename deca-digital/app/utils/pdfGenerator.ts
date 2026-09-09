@@ -63,7 +63,15 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`Nº ${deca.id}  ·  Versión v${deca.version}.0  ·  Estado: ${deca.status}`, titleX, 26);
-  doc.text('Documento nativo digital válido sin firma manuscrita (Orden FOM/2861/2012).', titleX, 30.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...ORANGE);
+  doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 30.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...GRAY_MUTED);
+  doc.setFontSize(7);
+  doc.text('Documento nativo digital válido sin firma manuscrita (Orden FOM/2861/2012).', titleX, 34.5);
 
   // QR arriba a la derecha
   const qrSize = 24;
@@ -73,7 +81,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.text('Verificación', pageWidth - margin - qrSize / 2, 6 + qrSize + 3, { align: 'center' });
 
   // Franja naranja divisoria
-  let y = Math.max(8 + logoHeight, 34) + 4;
+  let y = Math.max(8 + logoHeight, 38) + 4;
   doc.setFillColor(...ORANGE);
   doc.rect(0, y, pageWidth, 1.4, 'F');
   y += 8;
@@ -86,8 +94,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(8);
   doc.text(`Empresa: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, margin, y);
   y += 4.5;
-  //doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
-  //y += 4.5;
+  doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
+  y += 4.5;
   doc.text(`Teléfono: ${deca.contractualShipper.phone || 'N/A'}  |  Email: ${deca.contractualShipper.email || 'N/A'}`, margin, y);
   y += 4.5;
   doc.text(`Domicilio: ${deca.contractualShipper.address}`, margin, y);
@@ -98,20 +106,15 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   // llegaran a desincronizarse en la base de datos. route.originMain/
   // destinationMain quedan solo como respaldo por si un documento antiguo no
   // tuviera envíos cargados.
-  /*const origenPrincipal = deca.shipments?.[0]?.originAddress || deca.route.originMain;
+  const origenPrincipal = deca.shipments?.[0]?.originAddress || deca.route.originMain;
   const destinoPrincipal = deca.shipments?.[0]?.destinationAddress || deca.route.destinationMain;
   doc.text(`Origen Principal: ${origenPrincipal}  ->  Destino Principal: ${destinoPrincipal}`, margin, y);
   y += 4.5;
   if (deca.stops && deca.stops.length > 0) {
     doc.text(`Paradas Intermedias: ${deca.stops.join(' -> ')}`, margin, y);
     y += 4.5;
-  }*/
-
-  //bloque de fecha realizaicion transporte
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...ORANGE);
-  doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, margin, y);
-  y += 9;
+  }
+  y += 4.5;
 
   // --- 2. TRANSPORTISTA EFECTIVO ---
   y = sectionHeader('2. TRANSPORTISTA EFECTIVO (EMPRESA DE TRANSPORTE)', y);
@@ -121,18 +124,21 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(8);
   doc.text(`Empresa: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
   y += 4.5;
-
   doc.text(`Domicilio: ${deca.carrier.address}`, margin, y);
   y += 9;
-
-  doc.text(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})|  Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
+  doc.text(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})  |  Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
   y += 4.5;
-  doc.text(`Tractora: ${deca.carrier.tractorPlate}  |  Remolque: ${deca.carrier.trailerPlate || 'N/A'}`, margin, y);
+  const remolques = deca.carrier.trailerPlate2
+    ? `Remolque 1: ${deca.carrier.trailerPlate || 'N/A'}  |  Remolque 2: ${deca.carrier.trailerPlate2}`
+    : `Remolque: ${deca.carrier.trailerPlate || 'N/A'}`;
+  doc.text(`Tractora: ${deca.carrier.tractorPlate}  |  ${remolques}`, margin, y);
   y += 4.5;
-  //cambio sitio telefono
+  /*doc.text(`Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
+  y += 4.5;*/
+  
 
   // --- 3. DESGLOSE OBLIGATORIO DE ENVÍOS ---
-  y = sectionHeader('3. DATOS DE LA EXPEDICIÓN', y);
+  y = sectionHeader('3. DESGLOSE OBLIGATORIO DE ENVÍOS AGRUPADOS', y);
 
   doc.setFillColor(...GRAY_BG);
   doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
@@ -141,41 +147,47 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(7);
   const colRef = margin + 2;
   const colOrigen = margin + 24;
-  const colDestino = margin + 78;
-  const colNaturaleza = margin + 128;
   const colPeso = pageWidth - margin - 2;
   doc.text('#/Ref', colRef, y + 4);
-  doc.text('Origen', colOrigen, y + 4);
-  doc.text('Destino', colDestino, y + 4);
-  doc.text('Naturaleza de la carga', colNaturaleza, y + 4);
-  doc.text('Peso', colPeso, y + 4, { align: 'right' });
+  doc.text('Origen -> Destino  (naturaleza, peso y paradas en líneas inferiores)', colOrigen, y + 4);
   y += 6;
 
   let totalBultos = 0;
   let totalPeso = 0;
+  // Las paradas son del viaje completo, no de un envío en concreto, así que se
+  // muestran igual en cada fila — si no hay paradas, la fila no crece de más.
+  const stopsLine = deca.stops && deca.stops.length > 0 ? `Paradas: ${deca.stops.join(' -> ')}` : null;
+  const rowHeight = stopsLine ? 17 : 13;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(...GRAY_DARK);
   deca.shipments.forEach((s, idx) => {
     totalBultos += s.packageCount;
     totalPeso += s.grossWeightKg;
 
     if (idx % 2 === 1) {
       doc.setFillColor(250, 250, 252);
-      doc.rect(margin, y, pageWidth - margin * 2, 8, 'F');
+      doc.rect(margin, y, pageWidth - margin * 2, rowHeight, 'F');
     }
 
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY_DARK);
     doc.text(`${idx + 1}. ${s.trackingNumber}`, colRef, y + 4);
-    doc.text(truncateToWidth(s.originAddress, colDestino - colOrigen - 3), colOrigen, y + 4);
-    doc.text(truncateToWidth(s.destinationAddress, colNaturaleza - colDestino - 3), colDestino, y + 4);
-    doc.text(truncateToWidth(`${s.goodsDescription} (${s.packageCount})`, colPeso - colNaturaleza - 12), colNaturaleza, y + 4);
-    doc.text(`${s.grossWeightKg} kg`, colPeso, y + 4, { align: 'right' });
-    y += 8;
+    doc.text(truncateToWidth(`${s.originAddress}  ->  ${s.destinationAddress}`, colPeso - colOrigen), colOrigen, y + 4);
+
+    doc.setFontSize(7);
+    doc.setTextColor(...GRAY_MUTED);
+    doc.text(truncateToWidth(`Naturaleza: ${s.goodsDescription}  ·  Bultos: ${s.packageCount}  ·  Peso: ${s.grossWeightKg} kg`, colPeso - colOrigen), colOrigen, y + 9);
+
+    if (stopsLine) {
+      doc.text(truncateToWidth(stopsLine, colPeso - colOrigen), colOrigen, y + 13);
+    }
+
+    y += rowHeight;
   });
 
   y += 2;
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
   doc.setTextColor(...NAVY);
   doc.text(`TOTAL AGRUPACIÓN: ${deca.shipments.length} ENVÍOS  ·  ${totalBultos} BULTOS TOTALES`, margin, y);
   y += 4.5;

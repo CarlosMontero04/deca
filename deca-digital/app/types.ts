@@ -41,6 +41,7 @@ export interface DecaDocument {
     driverEmail?: string;
     tractorPlate: string;
     trailerPlate?: string;
+    trailerPlate2?: string;
     phone: string;
   };
   contractualShipper: {
