@@ -1,11 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { createClient } from '@/app/utils/supabase/server';
 
-// Envía el correo desde el servidor, usando las credenciales SMTP del hosting
-// de OPERPAL (configuradas como variables de entorno en Vercel, nunca en el
-// código). Esto sustituye al mailto: del navegador, que dependía de que el
-// dispositivo tuviera un cliente de correo asociado — aquí ya no depende de
-// eso: el envío ocurre en el servidor, no en el navegador de quien lo pulsa.
+// Cada persona de OPERPAL tiene su propio correo, así que el mensaje debe
+// salir desde la cuenta de quien lo esté enviando, no siempre desde una
+// única cuenta compartida. Para saber quién es, identificamos al usuario
+// mediante su sesión (la cookie del servidor, no algo que el navegador
+// pueda falsear) y elegimos las credenciales SMTP que le correspondan según
+// las variables de entorno configuradas en Vercel.
+//
+// Variables de entorno necesarias, una tanda por persona (SMTP1_*, SMTP2_*...):
+//   SMTP1_LOGIN_EMAIL  → el email con el que esa persona inicia sesión en la app
+//   SMTP1_HOST, SMTP1_PORT, SMTP1_USER, SMTP1_PASSWORD, SMTP1_FROM (opcional)
+// Para añadir una tercera persona en el futuro: añadir SMTP3_* en Vercel y
+// una entrada más en el array CREDENCIALES de abajo.
+
+function credencialesDisponibles() {
+  const tandas = [];
+  for (let i = 1; i <= 5; i++) {
+    const loginEmail = process.env[`SMTP${i}_LOGIN_EMAIL`];
+    const host = process.env[`SMTP${i}_HOST`];
+    if (loginEmail && host) {
+      tandas.push({
+        loginEmail,
+        host,
+        port: Number(process.env[`SMTP${i}_PORT`] || 587),
+        user: process.env[`SMTP${i}_USER`],
+        password: process.env[`SMTP${i}_PASSWORD`],
+        from: process.env[`SMTP${i}_FROM`] || process.env[`SMTP${i}_USER`],
+      });
+    }
+  }
+  return tandas;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { to, subject, text } = await req.json();
@@ -14,23 +42,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Faltan datos para enviar el correo.' }, { status: 400 });
     }
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-      console.error('Faltan variables de entorno SMTP_HOST / SMTP_USER / SMTP_PASSWORD');
-      return NextResponse.json({ error: 'El envío de correo no está configurado en el servidor.' }, { status: 500 });
+    // Identificamos al usuario conectado a través de su sesión del servidor
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || !user.email) {
+      return NextResponse.json({ error: 'No hay sesión activa.' }, { status: 401 });
+    }
+
+    const credenciales = credencialesDisponibles().find(
+      c => c.loginEmail.toLowerCase() === user.email!.toLowerCase()
+    );
+
+    if (!credenciales) {
+      console.error(`No hay credenciales SMTP configuradas para ${user.email}`);
+      return NextResponse.json({ error: 'Tu cuenta no tiene un correo de envío configurado. Contacta con el administrador.' }, { status: 500 });
     }
 
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: process.env.SMTP_PORT === '465',
+      host: credenciales.host,
+      port: credenciales.port,
+      secure: credenciales.port === 465,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
+        user: credenciales.user,
+        pass: credenciales.password,
       },
     });
 
     await transporter.sendMail({
-      from: `"OPERPAL" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      from: `"OPERPAL" <${credenciales.from}>`,
       to,
       subject,
       text,
