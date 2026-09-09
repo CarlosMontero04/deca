@@ -106,7 +106,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   // llegaran a desincronizarse en la base de datos. route.originMain/
   // destinationMain quedan solo como respaldo por si un documento antiguo no
   // tuviera envíos cargados.
-  const origenPrincipal = deca.shipments?.[0]?.originAddress || deca.route.originMain;
+  /*const origenPrincipal = deca.shipments?.[0]?.originAddress || deca.route.originMain;
   const destinoPrincipal = deca.shipments?.[0]?.destinationAddress || deca.route.destinationMain;
   doc.text(`Origen Principal: ${origenPrincipal}  ->  Destino Principal: ${destinoPrincipal}`, margin, y);
   y += 4.5;
@@ -114,7 +114,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     doc.text(`Paradas Intermedias: ${deca.stops.join(' -> ')}`, margin, y);
     y += 4.5;
   }
-  y += 4.5;
+  y += 4.5;*/
 
   // --- 2. TRANSPORTISTA EFECTIVO ---
   y = sectionHeader('2. TRANSPORTISTA EFECTIVO (EMPRESA DE TRANSPORTE)', y);
@@ -170,7 +170,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(...GRAY_DARK);
+    doc.setTextColor(...NAVY);
     doc.text(`${idx + 1}. ${s.trackingNumber}`, colRef, y + 4);
     doc.text(truncateToWidth(`${s.originAddress}  ->  ${s.destinationAddress}`, colPeso - colOrigen), colOrigen, y + 4);
 
@@ -231,7 +231,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
   // --- 5. OBSERVACIONES / RESERVAS ---
   if (deca.observations && deca.observations.trim().length > 0) {
-    y = sectionHeader('5. OBSERVACIONES / RESERVAS', y);
+    y = sectionHeader('5. OBSERVACIONES', y);
 
     doc.setTextColor(...GRAY_DARK);
     doc.setFont('helvetica', 'normal');
