@@ -94,8 +94,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(8);
   doc.text(`Empresa: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, margin, y);
   y += 4.5;
-  doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
-  y += 4.5;
+  /*doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
+  y += 4.5;*/
   doc.text(`Teléfono: ${deca.contractualShipper.phone || 'N/A'}  |  Email: ${deca.contractualShipper.email || 'N/A'}`, margin, y);
   y += 4.5;
   doc.text(`Domicilio: ${deca.contractualShipper.address}`, margin, y);
@@ -125,20 +125,20 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.text(`Empresa: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
   y += 4.5;
   doc.text(`Domicilio: ${deca.carrier.address}`, margin, y);
-  y += 9;
+  y += 4.5;
   doc.text(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})  |  Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
   y += 4.5;
   const remolques = deca.carrier.trailerPlate2
     ? `Remolque 1: ${deca.carrier.trailerPlate || 'N/A'}  |  Remolque 2: ${deca.carrier.trailerPlate2}`
     : `Remolque: ${deca.carrier.trailerPlate || 'N/A'}`;
   doc.text(`Tractora: ${deca.carrier.tractorPlate}  |  ${remolques}`, margin, y);
-  y += 4.5;
+  y += 9;
   /*doc.text(`Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
   y += 4.5;*/
   
 
   // --- 3. DESGLOSE OBLIGATORIO DE ENVÍOS ---
-  y = sectionHeader('3. DESGLOSE OBLIGATORIO DE ENVÍOS AGRUPADOS', y);
+  y = sectionHeader('3. DATOS DE LA EXPEDICIÓN', y);
 
   doc.setFillColor(...GRAY_BG);
   doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
@@ -149,7 +149,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   const colOrigen = margin + 24;
   const colPeso = pageWidth - margin - 2;
   doc.text('#/Ref', colRef, y + 4);
-  doc.text('Origen -> Destino  (naturaleza, peso y paradas en líneas inferiores)', colOrigen, y + 4);
+  doc.text('Origen -> Destino', colOrigen, y + 4);
   y += 6;
 
   let totalBultos = 0;
@@ -174,9 +174,9 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     doc.text(`${idx + 1}. ${s.trackingNumber}`, colRef, y + 4);
     doc.text(truncateToWidth(`${s.originAddress}  ->  ${s.destinationAddress}`, colPeso - colOrigen), colOrigen, y + 4);
 
-    doc.setFontSize(7);
-    doc.setTextColor(...GRAY_MUTED);
-    doc.text(truncateToWidth(`Naturaleza: ${s.goodsDescription}  ·  Bultos: ${s.packageCount}  ·  Peso: ${s.grossWeightKg} kg`, colPeso - colOrigen), colOrigen, y + 9);
+    doc.setFontSize(8);
+    doc.setTextColor(...NAVY);
+    doc.text(truncateToWidth(`Mercancía: ${s.goodsDescription}  ·  Bultos: ${s.packageCount}  ·  Peso: ${s.grossWeightKg} kg`, colPeso - colOrigen), colOrigen, y + 9);
 
     if (stopsLine) {
       doc.text(truncateToWidth(stopsLine, colPeso - colOrigen), colOrigen, y + 13);
@@ -189,7 +189,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
-  doc.text(`TOTAL AGRUPACIÓN: ${deca.shipments.length} ENVÍOS  ·  ${totalBultos} BULTOS TOTALES`, margin, y);
+  doc.text(`TOTAL AGRUPACIÓN: ${deca.shipments.length} ENVÍOS  ·   BULTOS TOTALES: ${totalBultos}`, margin, y);
   y += 4.5;
   doc.text(`PESO TOTAL CARGA: ${totalPeso} KG (${(totalPeso / 1000).toFixed(2)} TONELADAS)`, margin, y);
   y += 9;
