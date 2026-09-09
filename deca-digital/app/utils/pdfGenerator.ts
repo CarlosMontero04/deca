@@ -176,7 +176,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
     doc.setFontSize(8);
     doc.setTextColor(...NAVY);
-    doc.text(truncateToWidth(`Mercancía: ${s.goodsDescription}  ·  Bultos: ${s.packageCount}  ·  Peso: ${s.grossWeightKg} kg`, colPeso - colOrigen), colOrigen, y + 9);
+    doc.text(truncateToWidth(`Mercancía: ${s.goodsDescription}`, colPeso - colOrigen), colOrigen, y + 9);
 
     if (stopsLine) {
       doc.text(truncateToWidth(stopsLine, colPeso - colOrigen), colOrigen, y + 13);
@@ -189,6 +189,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
+  
   doc.text(`BULTOS TOTALES: ${totalBultos}`, margin, y);
   y += 4.5;
   doc.text(`PESO TOTAL CARGA: ${totalPeso} KG (${(totalPeso / 1000).toFixed(2)} TONELADAS)`, margin, y);
