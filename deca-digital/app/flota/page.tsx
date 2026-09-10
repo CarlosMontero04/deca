@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut } from 'lucide-react';
+import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle } from 'lucide-react';
 
 type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques';
 
@@ -227,6 +227,9 @@ export default function FlotaPanel() {
           </button>
           <div className="h-8 w-px bg-slate-200"></div>
           <span className="text-sm text-slate-500 hidden sm:inline">{user.email}</span>
+          <button onClick={() => router.push('/cuenta')} className="text-slate-400 hover:text-blue-600" title="Mi Cuenta">
+            <UserCircle className="w-5 h-5" />
+          </button>
           <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600" title="Cerrar sesión">
             <LogOut className="w-5 h-5" />
           </button>

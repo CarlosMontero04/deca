@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle } from 'lucide-react';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 
 export default function Dashboard() {
@@ -225,6 +225,9 @@ export default function Dashboard() {
             </span>
           </div>
           <div className="h-8 w-px bg-slate-200"></div>
+          <button onClick={() => router.push('/cuenta')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Mi Cuenta">
+            <UserCircle className="w-5 h-5" />
+          </button>
           <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Cerrar sesión">
             <LogOut className="w-5 h-5" />
           </button>

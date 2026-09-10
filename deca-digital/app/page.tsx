@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from './utils/supabase/client';
-import { LogOut, FileCheck, ClipboardList, Truck, ChevronRight } from 'lucide-react';
+import { LogOut, FileCheck, ClipboardList, Truck, ChevronRight, UserCircle } from 'lucide-react';
 
 const MODULOS = [
   {
@@ -74,6 +74,9 @@ export default function MenuPrincipal() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-500 hidden sm:inline">{user.email}</span>
+          <button onClick={() => router.push('/cuenta')} className="text-slate-400 hover:text-blue-600" title="Mi Cuenta">
+            <UserCircle className="w-5 h-5" />
+          </button>
           <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600" title="Cerrar sesión">
             <LogOut className="w-5 h-5" />
           </button>
