@@ -1,21 +1,24 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
-import { generateOrdenCargaPdf } from '../../utils/pdfGeneratorOrdenCarga';
-import { generateSecureId } from '../../utils/generateDecaId';
-import { ArrowLeft, FileText, Save } from 'lucide-react';
+import { useRouter, useParams } from 'next/navigation';
+import { createClient } from '../../../utils/supabase/client';
+import { generateOrdenCargaPdf } from '../../../utils/pdfGeneratorOrdenCarga';
+import { ArrowLeft, FileEdit, Save } from 'lucide-react';
 
-export default function NuevaOrdenCarga() {
+export default function ModificarOrdenCarga() {
   const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
   const supabase = createClient();
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [pdfStoragePath, setPdfStoragePath] = useState('');
 
-  const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState('');
   const [carrierName, setCarrierName] = useState('');
   const [carrierEmail, setCarrierEmail] = useState('');
   const [carrierPhone, setCarrierPhone] = useState('');
@@ -31,25 +34,43 @@ export default function NuevaOrdenCarga() {
   const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
-  const [selectedTractorPlate, setSelectedTractorPlate] = useState('');
-  const [selectedTrailerPlate, setSelectedTrailerPlate] = useState('');
 
   useEffect(() => {
-    const loadFleet = async () => {
+    const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) { router.push('/login'); return; }
       const uid = session.user.id;
-      const [c, t, tr] = await Promise.all([
+
+      const [ordenRes, c, t, tr] = await Promise.all([
+        supabase.from('ordenes_carga').select('*').eq('id', id).single(),
         supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
         supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
         supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
       ]);
+
+      if (ordenRes.data) {
+        const o = ordenRes.data;
+        setFecha(o.fecha || '');
+        setCarrierName(o.carrier_name || '');
+        setCarrierEmail(o.carrier_email || '');
+        setCarrierPhone(o.carrier_phone || '');
+        setCarrierPlates(o.carrier_plates || '');
+        setFechaCarga(o.fecha_carga || '');
+        setOrigen(o.origen || '');
+        setFechaDescarga(o.fecha_descarga || '');
+        setDestino(o.destino || '');
+        setMercancia(o.mercancia || '');
+        setPrecioConcertado(o.precio_concertado || '');
+        setObservaciones(o.observaciones || '');
+        setPdfStoragePath(o.pdf_storage_path || '');
+      }
       setSavedCarriers(c.data || []);
       setSavedTractors(t.data || []);
       setSavedTrailers(tr.data || []);
+      setLoading(false);
     };
-    loadFleet();
-  }, []);
+    load();
+  }, [id]);
 
   const handleSelectCarrier = (carrierId: string) => {
     const c = savedCarriers.find(c => c.id === carrierId);
@@ -60,64 +81,43 @@ export default function NuevaOrdenCarga() {
     }
   };
 
-  // Al elegir tractora/remolque guardados, combina las matrículas en el campo
-  // único de texto (tal como pide la plantilla original), pero lo deja editable.
-  const combinarMatriculas = (tractor: string, trailer: string) => {
-    const partes = [tractor, trailer].filter(Boolean);
-    setCarrierPlates(partes.join(' / '));
-  };
-
   const handleSelectTractor = (tractorId: string) => {
     const t = savedTractors.find(t => t.id === tractorId);
-    const plate = t ? t.tractor_plate : '';
-    setSelectedTractorPlate(plate);
-    combinarMatriculas(plate, selectedTrailerPlate);
+    if (t) setCarrierPlates(prev => {
+      const remolque = prev.includes('/') ? prev.split('/')[1]?.trim() : '';
+      return [t.tractor_plate, remolque].filter(Boolean).join(' / ');
+    });
   };
 
   const handleSelectTrailer = (trailerId: string) => {
     const t = savedTrailers.find(t => t.id === trailerId);
-    const plate = t ? t.trailer_plate : '';
-    setSelectedTrailerPlate(plate);
-    combinarMatriculas(selectedTractorPlate, plate);
+    if (t) setCarrierPlates(prev => {
+      const tractora = prev.includes('/') ? prev.split('/')[0]?.trim() : prev.trim();
+      return [tractora, t.trailer_plate].filter(Boolean).join(' / ');
+    });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setError(null);
 
     try {
-      const ordenId = generateSecureId('ORDEN');
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id;
-      if (!userId) throw new Error('No hay sesión activa.');
-
       const orden = {
-        id: ordenId,
-        fecha,
-        carrierName,
-        carrierEmail,
-        carrierPhone,
-        carrierPlates,
-        fechaCarga,
-        origen,
-        fechaDescarga,
-        destino,
-        mercancia,
-        precioConcertado,
-        observaciones,
+        id, fecha, carrierName, carrierEmail, carrierPhone, carrierPlates,
+        fechaCarga, origen, fechaDescarga, destino, mercancia, precioConcertado, observaciones,
       };
 
       const { blob, sizeBytes } = await generateOrdenCargaPdf(orden);
 
-      const pdfStoragePath = `${userId}/${ordenId}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from('ordenes-carga-pdf')
-        .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
-      if (uploadError) throw uploadError;
+      if (pdfStoragePath) {
+        const { error: uploadError } = await supabase.storage
+          .from('ordenes-carga-pdf')
+          .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
+        if (uploadError) throw uploadError;
+      }
 
-      const { error: dbError } = await supabase.from('ordenes_carga').insert([{
-        id: ordenId,
+      const { error: dbError } = await supabase.from('ordenes_carga').update({
         fecha,
         carrier_name: carrierName,
         carrier_email: carrierEmail || null,
@@ -130,50 +130,19 @@ export default function NuevaOrdenCarga() {
         mercancia: mercancia || null,
         precio_concertado: precioConcertado || null,
         observaciones: observaciones || null,
-        pdf_storage_path: pdfStoragePath,
         file_size_bytes: sizeBytes,
-        user_id: userId,
-      }]);
+      }).eq('id', id);
       if (dbError) throw dbError;
 
-      setCreatedId(ordenId);
+      setSaved(true);
     } catch (err: any) {
-      setError(err.message || 'Error al generar la orden de carga.');
+      setError(err.message || 'Error al guardar los cambios.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleDownload = async () => {
-    if (!createdId) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
-    const { data, error } = await supabase.storage.from('ordenes-carga-pdf').download(`${userId}/${createdId}.pdf`);
-    if (error || !data) return;
-    const url = URL.createObjectURL(data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${createdId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handlePreview = async () => {
-    if (!createdId) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
-    const { data, error } = await supabase.storage.from('ordenes-carga-pdf').download(`${userId}/${createdId}.pdf`);
-    if (error || !data) return;
-    const url = URL.createObjectURL(data);
-    const win = window.open(url, '_blank');
-    if (!win) {
-      alert('El navegador ha bloqueado la ventana emergente. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.');
-    }
-  };
+  if (loading) return <div className="p-10 text-center">Cargando orden de carga...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 sm:p-10">
@@ -184,9 +153,12 @@ export default function NuevaOrdenCarga() {
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 mb-6">
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <FileText className="w-6 h-6 text-blue-600" />
-            Nueva Orden de Carga
+            <FileEdit className="w-6 h-6 text-amber-500" />
+            Modificar Orden de Carga
           </h2>
+          <div className="mt-4 inline-block bg-slate-100 px-3 py-1 rounded font-mono text-sm font-bold text-slate-700">
+            {id}
+          </div>
         </div>
 
         {error && (
@@ -195,24 +167,9 @@ export default function NuevaOrdenCarga() {
           </div>
         )}
 
-        {createdId ? (
+        {saved ? (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
-            <div className="text-emerald-600 text-lg font-bold">✅ Orden {createdId} generada correctamente</div>
-            <button
-              type="button"
-              onClick={handlePreview}
-              className="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-xl shadow-md transition"
-            >
-              Previsualizar
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition"
-            >
-              Descargar PDF
-            </button>
-            <p className="text-xs text-slate-400">El envío por WhatsApp y email para esta orden llegará en una próxima actualización.</p>
+            <div className="text-emerald-600 text-lg font-bold">✅ Orden actualizada correctamente</div>
             <button
               type="button"
               onClick={() => router.push('/carga')}
@@ -222,7 +179,7 @@ export default function NuevaOrdenCarga() {
             </button>
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleUpdate} className="space-y-6">
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">Transportista</h3>
@@ -231,7 +188,7 @@ export default function NuevaOrdenCarga() {
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                 <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde transportista guardado</label>
                 <select defaultValue="" onChange={e => handleSelectCarrier(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                  <option value="">-- Escribir a mano --</option>
+                  <option value="">-- No cambiar --</option>
                   {savedCarriers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
                 </select>
               </div>
@@ -258,7 +215,7 @@ export default function NuevaOrdenCarga() {
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Tractora guardada</label>
                     <select defaultValue="" onChange={e => handleSelectTractor(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Ninguna --</option>
+                      <option value="">-- No cambiar --</option>
                       {savedTractors.map(t => <option key={t.id} value={t.id}>{t.tractor_plate}</option>)}
                     </select>
                   </div>
@@ -267,7 +224,7 @@ export default function NuevaOrdenCarga() {
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Remolque guardado</label>
                     <select defaultValue="" onChange={e => handleSelectTrailer(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Ninguno --</option>
+                      <option value="">-- No cambiar --</option>
                       {savedTrailers.map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
                     </select>
                   </div>
@@ -277,7 +234,7 @@ export default function NuevaOrdenCarga() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Matrículas</label>
-              <input type="text" value={carrierPlates} onChange={e => setCarrierPlates(e.target.value)} placeholder="Ej. 9121-LNG / R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <input type="text" value={carrierPlates} onChange={e => setCarrierPlates(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
           </div>
 
@@ -315,7 +272,7 @@ export default function NuevaOrdenCarga() {
             <h3 className="font-bold text-slate-800 border-b pb-2">Precio y Observaciones</h3>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Precio Concertado</label>
-              <input type="text" value={precioConcertado} onChange={e => setPrecioConcertado(e.target.value)} placeholder="Ej. 450€ + IVA" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <input type="text" value={precioConcertado} onChange={e => setPrecioConcertado(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
@@ -323,9 +280,9 @@ export default function NuevaOrdenCarga() {
             </div>
           </div>
 
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2 disabled:opacity-50">
+          <button type="submit" disabled={saving} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl shadow transition flex items-center justify-center gap-2 disabled:opacity-50">
             <Save className="w-5 h-5" />
-            {loading ? 'Generando...' : 'Generar Orden de Carga'}
+            {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>
         </form>
         )}

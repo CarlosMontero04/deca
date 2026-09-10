@@ -234,7 +234,7 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold text-slate-800">Documentos Activos</h2>
             <p className="text-sm text-slate-500">Panel de gestión y control en tiempo real</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => router.push('/carga')}
               className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"

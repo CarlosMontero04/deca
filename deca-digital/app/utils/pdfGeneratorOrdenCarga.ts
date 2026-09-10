@@ -106,22 +106,37 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
   y += 14;
 
   // --- TABLA DE DATOS (celdas con borde, como vuestra plantilla) ---
+  // Cada caja se adapta al contenido: si el valor es largo, la fila crece
+  // (envuelve el texto en varias líneas) en vez de desbordar o cortarse.
   const labelWidth = 48;
-  const rowH = 7.5;
+  const minRowH = 7.5;
+  const lineHeight = 3.6;
   const drawRow = (label: string, value: string) => {
+    const valueWidth = pageWidth - margin * 2 - labelWidth - 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    const lines = doc.splitTextToSize(value || '—', valueWidth);
+    const neededH = Math.max(minRowH, lines.length * lineHeight + 3.5);
+
+    // Si esta fila no cabe entera en lo que queda de página, saltamos de página
+    if (y + neededH > pageHeight - 15) {
+      doc.addPage();
+      y = 15;
+    }
+
     doc.setDrawColor(...BORDER);
     doc.setLineWidth(0.2);
     doc.setFillColor(...GRAY_BG);
-    doc.rect(margin, y, labelWidth, rowH, 'FD');
-    doc.rect(margin + labelWidth, y, pageWidth - margin * 2 - labelWidth, rowH, 'D');
+    doc.rect(margin, y, labelWidth, neededH, 'FD');
+    doc.rect(margin + labelWidth, y, pageWidth - margin * 2 - labelWidth, neededH, 'D');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(...NAVY);
-    doc.text(label, margin + 2.5, y + rowH / 2 + 1.5);
+    doc.text(label, margin + 2.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...GRAY_DARK);
-    doc.text(value || '—', margin + labelWidth + 2.5, y + rowH / 2 + 1.5);
-    y += rowH;
+    doc.text(lines, margin + labelWidth + 2.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
+    y += neededH;
   };
 
   drawRow('Fecha.:', fechaCorta(orden.fecha));
@@ -142,7 +157,10 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
   y += 8;
 
   // --- CONDICIONES DEL TRANSPORTE ---
-  y = ensureSpace(y, 10);
+  // Salto de página forzado: la página 1 es solo la información del viaje,
+  // la página 2 empieza siempre con las condiciones — igual que vuestra plantilla original.
+  doc.addPage();
+  y = 20;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...NAVY);

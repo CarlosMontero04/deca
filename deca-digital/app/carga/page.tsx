@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, FileText, PlusCircle, Download, Truck } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, Truck, Eye, FileEdit } from 'lucide-react';
 
 export default function PanelOrdenesCarga() {
   const router = useRouter();
@@ -13,6 +13,25 @@ export default function PanelOrdenesCarga() {
   const [user, setUser] = useState<any>(null);
   const [ordenes, setOrdenes] = useState<any[]>([]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const handlePreview = async (orden: any) => {
+    try {
+      setPreviewingId(orden.id);
+      const { data, error } = await supabase.storage.from('ordenes-carga-pdf').download(orden.pdf_storage_path);
+      if (error || !data) throw error;
+      const url = URL.createObjectURL(data);
+      const win = window.open(url, '_blank');
+      if (!win) {
+        alert('El navegador ha bloqueado la ventana emergente. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('No se pudo abrir la vista previa.');
+    } finally {
+      setPreviewingId(null);
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -88,7 +107,7 @@ export default function PanelOrdenesCarga() {
             <h2 className="text-2xl font-bold text-slate-800">Órdenes de Carga</h2>
             <p className="text-sm text-slate-500">Encargos a transportistas subcontratados</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => router.push('/')}
               className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
@@ -136,14 +155,31 @@ export default function PanelOrdenesCarga() {
                     <td className="p-4 whitespace-nowrap">{orden.fecha ? new Date(orden.fecha).toLocaleDateString('es-ES') : '—'}</td>
                     <td className="p-4">{orden.precio_concertado || '—'}</td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => handleDownload(orden)}
-                        disabled={downloadingId === orden.id}
-                        className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
-                      >
-                        <Download className="w-4 h-4 text-white" />
-                        {downloadingId === orden.id ? 'Descargando...' : 'Descargar'}
-                      </button>
+                      <div className="flex justify-end gap-2 flex-wrap">
+                        <button
+                          onClick={() => router.push(`/carga/modificar/${orden.id}`)}
+                          className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors"
+                        >
+                          <FileEdit className="w-4 h-4 text-white" />
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handlePreview(orden)}
+                          disabled={previewingId === orden.id}
+                          className="inline-flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                        >
+                          <Eye className="w-4 h-4 text-white" />
+                          {previewingId === orden.id ? 'Abriendo...' : 'Previsualizar'}
+                        </button>
+                        <button
+                          onClick={() => handleDownload(orden)}
+                          disabled={downloadingId === orden.id}
+                          className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                        >
+                          <Download className="w-4 h-4 text-white" />
+                          {downloadingId === orden.id ? 'Descargando...' : 'Descargar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
