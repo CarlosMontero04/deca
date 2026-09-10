@@ -38,8 +38,10 @@ export default function NuevaOrdenCarga() {
   const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
+  const [savedLocations, setSavedLocations] = useState<any[]>([]);
   const [selectedTractorPlate, setSelectedTractorPlate] = useState('');
   const [selectedTrailerPlate, setSelectedTrailerPlate] = useState('');
+  const [fleetSaveMessage, setFleetSaveMessage] = useState('');
 
   // Hace que una caja de texto crezca sola según el contenido, en vez de
   // quedarse con una altura fija y barra de scroll.
@@ -72,22 +74,52 @@ export default function NuevaOrdenCarga() {
       .forEach(r => resizeEl(r.current));
   }, [carrierName, carrierEmail, carrierPhone, carrierPlates, origen, destino, precioConcertado, mercancia, observaciones]);
 
+  const loadFleet = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const [c, t, tr, loc] = await Promise.all([
+      supabase.from('carriers').select('*').order('company_name'),
+      supabase.from('tractors').select('*').order('tractor_plate'),
+      supabase.from('trailers').select('*').order('trailer_plate'),
+      supabase.from('locations').select('*').order('title'),
+    ]);
+    setSavedCarriers(c.data || []);
+    setSavedTractors(t.data || []);
+    setSavedTrailers(tr.data || []);
+    setSavedLocations(loc.data || []);
+  };
+
   useEffect(() => {
-    const loadFleet = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const uid = session.user.id;
-      const [c, t, tr] = await Promise.all([
-        supabase.from('carriers').select('*').order('company_name'),
-        supabase.from('tractors').select('*').order('tractor_plate'),
-        supabase.from('trailers').select('*').order('trailer_plate'),
-      ]);
-      setSavedCarriers(c.data || []);
-      setSavedTractors(t.data || []);
-      setSavedTrailers(tr.data || []);
-    };
     loadFleet();
   }, []);
+
+  const flashFleetMessage = (msg: string) => {
+    setFleetSaveMessage(msg);
+    setTimeout(() => setFleetSaveMessage(''), 3000);
+  };
+
+  const handleSelectOrigenLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (l) setOrigen(l.address);
+  };
+
+  const handleSelectDestinoLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (l) setDestino(l.address);
+  };
+
+  const saveLocationToFleet = async (address: string) => {
+    if (!address) { flashFleetMessage('Escribe la dirección primero'); return; }
+    const yaExiste = savedLocations.some(l => l.address.toLowerCase() === address.toLowerCase());
+    if (yaExiste) { flashFleetMessage('Ya estaba guardada'); return; }
+    const titulo = window.prompt('Ponle un título corto a esta ubicación (ej. "Almacén Huelva"):');
+    if (!titulo) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await supabase.from('locations').insert([{ title: titulo, address, user_id: session.user.id }]);
+    await loadFleet();
+    flashFleetMessage('✓ Ubicación guardada');
+  };
 
   const handleSelectCarrier = (carrierId: string) => {
     const c = savedCarriers.find(c => c.id === carrierId);
@@ -372,6 +404,26 @@ export default function NuevaOrdenCarga() {
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">Datos del Transporte</h3>
+
+            {savedLocations.length > 0 && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar origen desde ubicación guardada</label>
+                  <select defaultValue="" onChange={e => handleSelectOrigenLocation(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+                    <option value="">-- Escribir a mano --</option>
+                    {savedLocations.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar destino desde ubicación guardada</label>
+                  <select defaultValue="" onChange={e => handleSelectDestinoLocation(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+                    <option value="">-- Escribir a mano --</option>
+                    {savedLocations.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha</label>
@@ -406,12 +458,19 @@ export default function NuevaOrdenCarga() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Origen</label>
                 <textarea ref={origenRef} value={origen} onChange={e => { setOrigen(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+                <button type="button" onClick={() => saveLocationToFleet(origen)} className="mt-1 text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  + Guardar como ubicación
+                </button>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Destino</label>
                 <textarea ref={destinoRef} value={destino} onChange={e => { setDestino(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+                <button type="button" onClick={() => saveLocationToFleet(destino)} className="mt-1 text-xs font-semibold text-blue-700 hover:text-blue-800">
+                  + Guardar como ubicación
+                </button>
               </div>
             </div>
+            {fleetSaveMessage && <p className="text-xs text-emerald-600 font-semibold">{fleetSaveMessage}</p>}
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">

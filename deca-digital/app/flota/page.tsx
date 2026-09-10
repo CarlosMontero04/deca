@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle } from 'lucide-react';
 
-type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques';
+type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones';
 
 export default function FlotaPanel() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function FlotaPanel() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [tractors, setTractors] = useState<any[]>([]);
   const [trailers, setTrailers] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
 
   // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
   const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '' });
@@ -33,19 +34,23 @@ export default function FlotaPanel() {
   const [tractorForm, setTractorForm] = useState({ id: '', tractor_plate: '', carrier_id: '' });
   // Formulario de Remolque (entidad propia: un remolque puede compartirse entre varias tractoras)
   const [trailerForm, setTrailerForm] = useState({ id: '', trailer_plate: '', carrier_id: '' });
+  // Formulario de Ubicación (origen/destino guardado, con título para buscarlo)
+  const [locationForm, setLocationForm] = useState({ id: '', title: '', address: '' });
 
   const loadAll = async (uid: string) => {
-    const [c, d, t, tr, e] = await Promise.all([
+    const [c, d, t, tr, loc, e] = await Promise.all([
       supabase.from('carriers').select('*').order('company_name'),
       supabase.from('drivers').select('*').order('name'),
       supabase.from('tractors').select('*').order('tractor_plate'),
       supabase.from('trailers').select('*').order('trailer_plate'),
+      supabase.from('locations').select('*').order('title'),
       supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
     ]);
     setCarriers(c.data || []);
     setDrivers(d.data || []);
     setTractors(t.data || []);
     setTrailers(tr.data || []);
+    setLocations(loc.data || []);
     if (e.data) {
       setCompanyForm({
         company_name: e.data.company_name || '',
@@ -79,6 +84,7 @@ export default function FlotaPanel() {
     setDriverForm({ id: '', name: '', dni: '', email: '', phone: '', carrier_id: '' });
     setTractorForm({ id: '', tractor_plate: '', carrier_id: '' });
     setTrailerForm({ id: '', trailer_plate: '', carrier_id: '' });
+    setLocationForm({ id: '', title: '', address: '' });
   };
 
   // --- Mi Empresa (Cargador Contractual fijo) ---
@@ -195,6 +201,28 @@ export default function FlotaPanel() {
     if (userId) await loadAll(userId);
   };
 
+  // --- Ubicaciones (orígenes/destinos guardados, con título para buscarlos) ---
+  const saveLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    const payload = { title: locationForm.title, address: locationForm.address, user_id: userId };
+    if (locationForm.id) {
+      await supabase.from('locations').update(payload).eq('id', locationForm.id);
+    } else {
+      await supabase.from('locations').insert([payload]);
+    }
+    resetForms();
+    await loadAll(userId);
+  };
+
+  const editLocation = (l: any) => setLocationForm({ id: l.id, title: l.title, address: l.address });
+
+  const deleteLocation = async (id: string) => {
+    if (!confirm('¿Eliminar esta ubicación?')) return;
+    await supabase.from('locations').delete().eq('id', id);
+    if (userId) await loadAll(userId);
+  };
+
   const carrierName = (carrierId: string | null) => carriers.find(c => c.id === carrierId)?.company_name || '—';
 
   const q = search.trim().toLowerCase();
@@ -202,6 +230,7 @@ export default function FlotaPanel() {
   const filteredDrivers = drivers.filter(d => !q || d.name?.toLowerCase().includes(q) || d.dni?.toLowerCase().includes(q));
   const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q));
   const filteredTrailers = trailers.filter(t => !q || t.trailer_plate?.toLowerCase().includes(q));
+  const filteredLocations = locations.filter(l => !q || l.title?.toLowerCase().includes(q) || l.address?.toLowerCase().includes(q));
 
   if (loading) {
     return (
@@ -244,7 +273,7 @@ export default function FlotaPanel() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex gap-2 flex-wrap">
-            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques'] as Tab[]).map(t => (
+            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques', 'ubicaciones'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); resetForms(); setSearch(''); }}
@@ -259,7 +288,7 @@ export default function FlotaPanel() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={tab === 'transportistas' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : 'Buscar por matrícula...'}
+              placeholder={tab === 'transportistas' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : 'Buscar por matrícula...'}
               className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
             />
           )}
@@ -440,6 +469,43 @@ export default function FlotaPanel() {
                     </tr>
                   ))}
                   {filteredTrailers.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400">{trailers.length === 0 ? 'Sin remolques guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* UBICACIONES */}
+        {tab === 'ubicaciones' && (
+          <div className="space-y-6">
+            <form onSubmit={saveLocation} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">{locationForm.id ? 'Editar' : 'Nueva'} Ubicación</h3>
+              <p className="text-xs text-slate-500">Guarda un origen o destino habitual con un título corto para encontrarlo rápido al rellenar una Orden de Carga.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input required placeholder="Título (ej. Almacén Huelva)" value={locationForm.title} onChange={e => setLocationForm({ ...locationForm, title: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <input required placeholder="Dirección completa" value={locationForm.address} onChange={e => setLocationForm({ ...locationForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> {locationForm.id ? 'Guardar Cambios' : 'Añadir'}</button>
+                {locationForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
+              </div>
+            </form>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Título</th><th className="p-3">Dirección</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredLocations.map(l => (
+                    <tr key={l.id}>
+                      <td className="p-3 font-semibold">{l.title}</td>
+                      <td className="p-3">{l.address}</td>
+                      <td className="p-3 text-right flex justify-end gap-2">
+                        <button onClick={() => editLocation(l)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => deleteLocation(l.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredLocations.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400">{locations.length === 0 ? 'Sin ubicaciones guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
