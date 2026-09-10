@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OPERPAL · DeCA Digital",
+  title: "PORTAL OPERPAL",
   description: "Gestión de Documentos Electrónicos de Control Administrativo — OPERPAL, Operador Logístico de Palma del Río, S.L.",
   icons: {
     icon: "/logo-operpal-icon.png",
