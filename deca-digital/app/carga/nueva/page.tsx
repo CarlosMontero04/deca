@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { generateOrdenCargaPdf } from '../../utils/pdfGeneratorOrdenCarga';
@@ -47,6 +47,29 @@ export default function NuevaOrdenCarga() {
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   };
+  const resizeEl = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  const carrierNameRef = useRef<HTMLTextAreaElement>(null);
+  const carrierEmailRef = useRef<HTMLTextAreaElement>(null);
+  const carrierPhoneRef = useRef<HTMLTextAreaElement>(null);
+  const carrierPlatesRef = useRef<HTMLTextAreaElement>(null);
+  const origenRef = useRef<HTMLTextAreaElement>(null);
+  const destinoRef = useRef<HTMLTextAreaElement>(null);
+  const precioRef = useRef<HTMLTextAreaElement>(null);
+  const mercanciaRef = useRef<HTMLTextAreaElement>(null);
+  const observacionesRef = useRef<HTMLTextAreaElement>(null);
+
+  // Se ejecuta ante CUALQUIER cambio de estos valores, ya sea escribiendo o
+  // seleccionando algo del desplegable de flota — así todas las cajas se
+  // ajustan siempre, no solo cuando escribes directamente.
+  useLayoutEffect(() => {
+    [carrierNameRef, carrierEmailRef, carrierPhoneRef, carrierPlatesRef, origenRef, destinoRef, precioRef, mercanciaRef, observacionesRef]
+      .forEach(r => resizeEl(r.current));
+  }, [carrierName, carrierEmail, carrierPhone, carrierPlates, origen, destino, precioConcertado, mercancia, observaciones]);
 
   useEffect(() => {
     const loadFleet = async () => {
@@ -303,15 +326,15 @@ export default function NuevaOrdenCarga() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label>
-                <input type="text" required value={carrierName} onChange={e => setCarrierName(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierNameRef} required value={carrierName} onChange={e => { setCarrierName(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                <input type="email" value={carrierEmail} onChange={e => setCarrierEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierEmailRef} inputMode="email" value={carrierEmail} onChange={e => { setCarrierEmail(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
-                <input type="tel" value={carrierPhone} onChange={e => setCarrierPhone(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierPhoneRef} inputMode="tel" value={carrierPhone} onChange={e => { setCarrierPhone(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
             </div>
 
@@ -340,7 +363,7 @@ export default function NuevaOrdenCarga() {
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Matrículas</label>
-              <input type="text" value={carrierPlates} onChange={e => setCarrierPlates(e.target.value)} placeholder="Ej. 9121-LNG / R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <textarea ref={carrierPlatesRef} value={carrierPlates} onChange={e => { setCarrierPlates(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 9121-LNG / R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
           </div>
 
@@ -354,6 +377,7 @@ export default function NuevaOrdenCarga() {
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Mercancía</label>
                 <textarea
+                  ref={mercanciaRef}
                   value={mercancia}
                   onChange={e => { setMercancia(e.target.value); autoResize(e); }}
                   rows={1}
@@ -370,7 +394,7 @@ export default function NuevaOrdenCarga() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Origen</label>
-                <input type="text" value={origen} onChange={e => setOrigen(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={origenRef} value={origen} onChange={e => { setOrigen(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Descarga</label>
@@ -382,7 +406,7 @@ export default function NuevaOrdenCarga() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Destino</label>
-                <input type="text" value={destino} onChange={e => setDestino(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={destinoRef} value={destino} onChange={e => { setDestino(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
             </div>
           </div>
@@ -391,11 +415,12 @@ export default function NuevaOrdenCarga() {
             <h3 className="font-bold text-slate-800 border-b pb-2">Precio y Observaciones</h3>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Precio Concertado</label>
-              <input type="text" value={precioConcertado} onChange={e => setPrecioConcertado(e.target.value)} placeholder="Ej. 450€ + IVA" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <textarea ref={precioRef} value={precioConcertado} onChange={e => { setPrecioConcertado(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 450€ + IVA" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
               <textarea
+                ref={observacionesRef}
                 value={observaciones}
                 onChange={e => { setObservaciones(e.target.value); autoResize(e); }}
                 rows={2}
