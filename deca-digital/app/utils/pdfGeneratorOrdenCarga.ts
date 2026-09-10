@@ -69,8 +69,8 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
     return currentY;
   };
 
-  // --- CABECERA (igual que vuestra plantilla real) ---
-  const logoWidth = 38;
+  // --- CABECERA (igual que vuestra plantilla real, logo un poco más grande) ---
+  const logoWidth = 44;
   const logoHeight = logoWidth * (OPERPAL_LOGO_HEIGHT_PX / OPERPAL_LOGO_WIDTH_PX);
   doc.addImage(OPERPAL_LOGO_BASE64, 'PNG', margin, 12, logoWidth, logoHeight);
 
@@ -94,28 +94,26 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
     doc.text(line, pageWidth - margin, 19 + i * 4, { align: 'right' });
   });
 
+  // Título: franja navy redondeada con el número de orden a la derecha
   let y = 46;
-  doc.setTextColor(...NAVY);
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 12, 2, 2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('ORDEN DE CARGA', pageWidth / 2, y, { align: 'center' });
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.4);
-  const titleWidth = doc.getTextWidth('ORDEN DE CARGA');
-  doc.line(pageWidth / 2 - titleWidth / 2, y + 1.5, pageWidth / 2 + titleWidth / 2, y + 1.5);
-
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text('ORDEN DE CARGA', margin + 4, y + 8);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...GRAY_DARK);
-  doc.text(`Nº ${orden.id}`, pageWidth / 2, y + 6, { align: 'center' });
-  y += 14;
+  doc.setFontSize(8);
+  doc.text(`Nº ${orden.id}`, pageWidth - margin - 4, y + 8, { align: 'right' });
+  y += 20;
 
-  // --- TABLA DE DATOS (celdas con borde, como vuestra plantilla) ---
+  // --- TABLA DE DATOS (casillas con esquinas redondeadas) ---
   // Cada caja se adapta al contenido: si el valor es largo, la fila crece
   // (envuelve el texto en varias líneas) en vez de desbordar o cortarse.
   const labelWidth = 48;
   const minRowH = 7.5;
   const lineHeight = 3.6;
+  const rowGap = 1.2;
   const drawRow = (label: string, value: string, highlight = false) => {
     const valueWidth = pageWidth - margin * 2 - labelWidth - 5;
     doc.setFont('helvetica', highlight ? 'bold' : 'normal');
@@ -132,20 +130,23 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
     doc.setDrawColor(...BORDER);
     doc.setLineWidth(0.2);
     doc.setFillColor(...GRAY_BG);
-    doc.rect(margin, y, labelWidth, neededH, 'FD');
+    doc.roundedRect(margin, y, labelWidth, neededH, 1.5, 1.5, 'FD');
     if (highlight) {
       doc.setFillColor(...YELLOW_HIGHLIGHT);
-      doc.rect(margin + labelWidth, y, pageWidth - margin * 2 - labelWidth, neededH, 'F');
+      doc.roundedRect(margin + labelWidth + 2, y, pageWidth - margin * 2 - labelWidth - 2, neededH, 1.5, 1.5, 'F');
+      doc.setDrawColor(...BORDER);
+      doc.roundedRect(margin + labelWidth + 2, y, pageWidth - margin * 2 - labelWidth - 2, neededH, 1.5, 1.5, 'D');
+    } else {
+      doc.roundedRect(margin + labelWidth + 2, y, pageWidth - margin * 2 - labelWidth - 2, neededH, 1.5, 1.5, 'D');
     }
-    doc.rect(margin + labelWidth, y, pageWidth - margin * 2 - labelWidth, neededH, 'D');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(...NAVY);
     doc.text(label, margin + 2.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
     doc.setFont('helvetica', highlight ? 'bold' : 'normal');
     doc.setTextColor(...GRAY_DARK);
-    doc.text(lines, margin + labelWidth + 2.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
-    y += neededH;
+    doc.text(lines, margin + labelWidth + 4.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
+    y += neededH + rowGap;
   };
 
   drawRow('Fecha.:', fechaCorta(orden.fecha));
