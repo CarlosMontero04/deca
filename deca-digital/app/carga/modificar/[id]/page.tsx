@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '../../../utils/supabase/client';
 import { generateOrdenCargaPdf } from '../../../utils/pdfGeneratorOrdenCarga';
+import { notifyCarrierOrden } from '../../../utils/notifyCarrierOrden';
 import { ArrowLeft, FileEdit, Save } from 'lucide-react';
 
 export default function ModificarOrdenCarga() {
@@ -17,6 +18,8 @@ export default function ModificarOrdenCarga() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pdfStoragePath, setPdfStoragePath] = useState('');
+  const [notifySending, setNotifySending] = useState<'telefono' | 'email' | null>(null);
+  const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   const [fecha, setFecha] = useState('');
   const [carrierName, setCarrierName] = useState('');
@@ -170,6 +173,43 @@ export default function ModificarOrdenCarga() {
         {saved ? (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
             <div className="text-emerald-600 text-lg font-bold">✅ Orden actualizada correctamente</div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={!carrierPhone || notifySending !== null}
+                onClick={async () => {
+                  setNotifySending('telefono');
+                  setNotifyResult(null);
+                  const r = await notifyCarrierOrden(supabase, 'telefono', carrierPhone, carrierEmail, id, pdfStoragePath, `Se ha actualizado la Orden de Carga ${id}.`);
+                  setNotifySending(null);
+                  setNotifyResult(r);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-40"
+              >
+                {notifySending === 'telefono' ? 'Enviando...' : 'Enviar por WhatsApp'}
+              </button>
+              <button
+                type="button"
+                disabled={!carrierEmail || notifySending !== null}
+                onClick={async () => {
+                  setNotifySending('email');
+                  setNotifyResult(null);
+                  const r = await notifyCarrierOrden(supabase, 'email', carrierPhone, carrierEmail, id, pdfStoragePath, `Se ha actualizado la Orden de Carga ${id}, adjunta en PDF.`);
+                  setNotifySending(null);
+                  setNotifyResult(r);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-40"
+              >
+                {notifySending === 'email' ? 'Enviando...' : 'Enviar por Email'}
+              </button>
+            </div>
+            {notifyResult?.success && (
+              <p className="text-sm text-emerald-600 font-semibold">✓ Enviado correctamente</p>
+            )}
+            {notifyResult && !notifyResult.success && (
+              <p className="text-sm text-rose-600 font-semibold">✗ {notifyResult.error}</p>
+            )}
             <button
               type="button"
               onClick={() => router.push('/carga')}

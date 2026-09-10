@@ -36,7 +36,7 @@ function credencialesDisponibles() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { to, subject, text } = await req.json();
+    const { to, subject, text, attachmentBucket, attachmentPath, attachmentFilename } = await req.json();
 
     if (!to || !subject || !text) {
       return NextResponse.json({ error: 'Faltan datos para enviar el correo.' }, { status: 400 });
@@ -59,6 +59,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tu cuenta no tiene un correo de envío configurado. Contacta con el administrador.' }, { status: 500 });
     }
 
+    // Si se pide adjunto, lo traemos del mismo Storage donde ya vive, usando
+    // la sesión del propio usuario — las políticas de seguridad ya existentes
+    // garantizan que solo pueda adjuntar sus propios archivos.
+    let attachments: { filename: string; content: Buffer }[] | undefined;
+    if (attachmentBucket && attachmentPath) {
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from(attachmentBucket)
+        .download(attachmentPath);
+      if (fileError || !fileData) {
+        return NextResponse.json({ error: 'No se pudo obtener el archivo adjunto.' }, { status: 500 });
+      }
+      const buffer = Buffer.from(await fileData.arrayBuffer());
+      attachments = [{ filename: attachmentFilename || 'documento.pdf', content: buffer }];
+    }
+
     const transporter = nodemailer.createTransport({
       host: credenciales.host,
       port: credenciales.port,
@@ -74,6 +89,7 @@ export async function POST(req: NextRequest) {
       to,
       subject,
       text,
+      attachments,
     });
 
     return NextResponse.json({ success: true });

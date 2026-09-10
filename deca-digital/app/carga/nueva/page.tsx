@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { generateOrdenCargaPdf } from '../../utils/pdfGeneratorOrdenCarga';
 import { generateSecureId } from '../../utils/generateDecaId';
+import { notifyCarrierOrden } from '../../utils/notifyCarrierOrden';
 import { ArrowLeft, FileText, Save } from 'lucide-react';
 
 export default function NuevaOrdenCarga() {
@@ -14,6 +15,9 @@ export default function NuevaOrdenCarga() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [createdPdfPath, setCreatedPdfPath] = useState('');
+  const [notifySending, setNotifySending] = useState<'telefono' | 'email' | null>(null);
+  const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
 
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [carrierName, setCarrierName] = useState('');
@@ -137,6 +141,7 @@ export default function NuevaOrdenCarga() {
       if (dbError) throw dbError;
 
       setCreatedId(ordenId);
+      setCreatedPdfPath(pdfStoragePath);
     } catch (err: any) {
       setError(err.message || 'Error al generar la orden de carga.');
     } finally {
@@ -198,6 +203,43 @@ export default function NuevaOrdenCarga() {
         {createdId ? (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-6 text-center">
             <div className="text-emerald-600 text-lg font-bold">✅ Orden {createdId} generada correctamente</div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={!carrierPhone || notifySending !== null}
+                onClick={async () => {
+                  setNotifySending('telefono');
+                  setNotifyResult(null);
+                  const r = await notifyCarrierOrden(supabase, 'telefono', carrierPhone, carrierEmail, createdId!, createdPdfPath, `Aquí tienes la Orden de Carga ${createdId}.`);
+                  setNotifySending(null);
+                  setNotifyResult(r);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-40"
+              >
+                {notifySending === 'telefono' ? 'Enviando...' : 'Enviar por WhatsApp'}
+              </button>
+              <button
+                type="button"
+                disabled={!carrierEmail || notifySending !== null}
+                onClick={async () => {
+                  setNotifySending('email');
+                  setNotifyResult(null);
+                  const r = await notifyCarrierOrden(supabase, 'email', carrierPhone, carrierEmail, createdId!, createdPdfPath, `Aquí tienes la Orden de Carga ${createdId} adjunta en PDF.`);
+                  setNotifySending(null);
+                  setNotifyResult(r);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-40"
+              >
+                {notifySending === 'email' ? 'Enviando...' : 'Enviar por Email'}
+              </button>
+            </div>
+            {notifyResult?.success && (
+              <p className="text-sm text-emerald-600 font-semibold">✓ Enviado correctamente</p>
+            )}
+            {notifyResult && !notifyResult.success && (
+              <p className="text-sm text-rose-600 font-semibold">✗ {notifyResult.error}</p>
+            )}
             <button
               type="button"
               onClick={handlePreview}
@@ -212,7 +254,6 @@ export default function NuevaOrdenCarga() {
             >
               Descargar PDF
             </button>
-            <p className="text-xs text-slate-400">El envío por WhatsApp y email para esta orden llegará en una próxima actualización.</p>
             <button
               type="button"
               onClick={() => router.push('/carga')}
