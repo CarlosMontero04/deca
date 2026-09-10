@@ -349,16 +349,16 @@ export default function ModificarOrdenCarga() {
                 <input type="time" value={horaCarga} onChange={e => setHoraCarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Origen</label>
-                <textarea ref={origenRef} value={origen} onChange={e => { setOrigen(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-              </div>
-              <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Descarga</label>
                 <input type="date" value={fechaDescarga} onChange={e => setFechaDescarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Hora de Descarga (opcional)</label>
                 <input type="time" value={horaDescarga} onChange={e => setHoraDescarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Origen</label>
+                <textarea ref={origenRef} value={origen} onChange={e => { setOrigen(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Destino</label>
