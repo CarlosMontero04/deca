@@ -6,6 +6,7 @@ const ORANGE: [number, number, number] = [233, 136, 55];
 const GRAY_DARK: [number, number, number] = [45, 45, 45];
 const GRAY_BG: [number, number, number] = [246, 244, 251];
 const BORDER: [number, number, number] = [190, 188, 200];
+const YELLOW_HIGHLIGHT: [number, number, number] = [255, 235, 59];
 
 export interface OrdenCarga {
   id: string;
@@ -23,6 +24,7 @@ export interface OrdenCarga {
   mercancia?: string;
   precioConcertado?: string;
   observaciones?: string;
+  observacionesDestacadas?: boolean;
 }
 
 // Condiciones fijas de OPERPAL — mismas en todas las órdenes de carga,
@@ -114,9 +116,9 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
   const labelWidth = 48;
   const minRowH = 7.5;
   const lineHeight = 3.6;
-  const drawRow = (label: string, value: string) => {
+  const drawRow = (label: string, value: string, highlight = false) => {
     const valueWidth = pageWidth - margin * 2 - labelWidth - 5;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('helvetica', highlight ? 'bold' : 'normal');
     doc.setFontSize(8.5);
     const lines = doc.splitTextToSize(value || '—', valueWidth);
     const neededH = Math.max(minRowH, lines.length * lineHeight + 3.5);
@@ -131,12 +133,16 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
     doc.setLineWidth(0.2);
     doc.setFillColor(...GRAY_BG);
     doc.rect(margin, y, labelWidth, neededH, 'FD');
+    if (highlight) {
+      doc.setFillColor(...YELLOW_HIGHLIGHT);
+      doc.rect(margin + labelWidth, y, pageWidth - margin * 2 - labelWidth, neededH, 'F');
+    }
     doc.rect(margin + labelWidth, y, pageWidth - margin * 2 - labelWidth, neededH, 'D');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(...NAVY);
     doc.text(label, margin + 2.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('helvetica', highlight ? 'bold' : 'normal');
     doc.setTextColor(...GRAY_DARK);
     doc.text(lines, margin + labelWidth + 2.5, y + (lines.length === 1 ? neededH / 2 + 1.5 : 5));
     y += neededH;
@@ -155,7 +161,7 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
 
   y += 6;
   drawRow('Precio concertado.:', orden.precioConcertado || '—');
-  drawRow('Observaciones.:', orden.observaciones || '—');
+  drawRow('Observaciones.:', orden.observaciones || '—', !!orden.observacionesDestacadas);
 
   y += 8;
 

@@ -35,6 +35,7 @@ export default function ModificarOrdenCarga() {
   const [mercancia, setMercancia] = useState('');
   const [precioConcertado, setPrecioConcertado] = useState('');
   const [observaciones, setObservaciones] = useState('');
+  const [observacionesDestacadas, setObservacionesDestacadas] = useState(false);
 
   const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
@@ -90,6 +91,7 @@ export default function ModificarOrdenCarga() {
         setMercancia(o.mercancia || '');
         setPrecioConcertado(o.precio_concertado || '');
         setObservaciones(o.observaciones || '');
+        setObservacionesDestacadas(o.observaciones_destacadas || false);
         setPdfStoragePath(o.pdf_storage_path || '');
       }
       setSavedCarriers(c.data || []);
@@ -144,6 +146,7 @@ export default function ModificarOrdenCarga() {
       const orden = {
         id, fecha, carrierName, carrierEmail, carrierPhone, carrierPlates,
         fechaCarga, horaCarga, origen, fechaDescarga, horaDescarga, destino, mercancia, precioConcertado, observaciones,
+        observacionesDestacadas,
       };
 
       const { blob, sizeBytes } = await generateOrdenCargaPdf(orden);
@@ -170,6 +173,7 @@ export default function ModificarOrdenCarga() {
         mercancia: mercancia || null,
         precio_concertado: precioConcertado || null,
         observaciones: observaciones || null,
+        observaciones_destacadas: observacionesDestacadas,
         file_size_bytes: sizeBytes,
       }).eq('id', id);
       if (dbError) throw dbError;
@@ -374,13 +378,19 @@ export default function ModificarOrdenCarga() {
               <textarea ref={precioRef} value={precioConcertado} onChange={e => { setPrecioConcertado(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-600">Observaciones</label>
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 cursor-pointer select-none">
+                  <input type="checkbox" checked={observacionesDestacadas} onChange={e => setObservacionesDestacadas(e.target.checked)} className="w-3.5 h-3.5 accent-amber-500" />
+                  Destacar en el PDF (negrita + amarillo)
+                </label>
+              </div>
               <textarea
                 ref={observacionesRef}
                 value={observaciones}
                 onChange={e => { setObservaciones(e.target.value); autoResize(e); }}
                 rows={2}
-                className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden"
+                className={`w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden ${observacionesDestacadas ? 'bg-yellow-50 border-amber-300' : ''}`}
               />
             </div>
           </div>
