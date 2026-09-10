@@ -25,7 +25,7 @@ export default function FlotaPanel() {
   // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
   const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '' });
   // Formulario de Transportista
-  const [carrierForm, setCarrierForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '' });
+  const [carrierForm, setCarrierForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
   // Formulario de Conductor
   const [driverForm, setDriverForm] = useState({ id: '', name: '', dni: '', email: '', phone: '', carrier_id: '' });
   // Formulario de Tractora
@@ -68,7 +68,7 @@ export default function FlotaPanel() {
   }, []);
 
   const resetForms = () => {
-    setCarrierForm({ id: '', company_name: '', cif: '', address: '', phone: '' });
+    setCarrierForm({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
     setDriverForm({ id: '', name: '', dni: '', email: '', phone: '', carrier_id: '' });
     setTractorForm({ id: '', tractor_plate: '', carrier_id: '' });
     setTrailerForm({ id: '', trailer_plate: '', carrier_id: '' });
@@ -95,7 +95,7 @@ export default function FlotaPanel() {
   const saveCarrier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
-    const payload = { company_name: carrierForm.company_name, cif: carrierForm.cif, address: carrierForm.address, phone: carrierForm.phone, user_id: userId };
+    const payload = { company_name: carrierForm.company_name, cif: carrierForm.cif, address: carrierForm.address, phone: carrierForm.phone, email: carrierForm.email, user_id: userId };
     if (carrierForm.id) {
       await supabase.from('carriers').update(payload).eq('id', carrierForm.id);
     } else {
@@ -105,7 +105,7 @@ export default function FlotaPanel() {
     await loadAll(userId);
   };
 
-  const editCarrier = (c: any) => setCarrierForm({ id: c.id, company_name: c.company_name, cif: c.cif, address: c.address || '', phone: c.phone || '' });
+  const editCarrier = (c: any) => setCarrierForm({ id: c.id, company_name: c.company_name, cif: c.cif, address: c.address || '', phone: c.phone || '', email: c.email || '' });
 
   const deleteCarrier = async (id: string) => {
     if (!confirm('¿Eliminar este transportista? Los conductores y tractoras vinculados quedarán sin vincular, pero no se borran.')) return;
@@ -262,6 +262,7 @@ export default function FlotaPanel() {
                 <input required placeholder="CIF" value={carrierForm.cif} onChange={e => setCarrierForm({ ...carrierForm, cif: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
                 <input placeholder="Domicilio" value={carrierForm.address} onChange={e => setCarrierForm({ ...carrierForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 sm:col-span-2" />
                 <input placeholder="Teléfono de Contacto" value={carrierForm.phone} onChange={e => setCarrierForm({ ...carrierForm, phone: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <input type="email" placeholder="Email" value={carrierForm.email} onChange={e => setCarrierForm({ ...carrierForm, email: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div className="flex gap-2">
                 <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> {carrierForm.id ? 'Guardar Cambios' : 'Añadir'}</button>
