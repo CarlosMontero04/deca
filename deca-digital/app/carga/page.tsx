@@ -191,10 +191,8 @@ export default function PanelOrdenesCarga() {
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
                 <tr>
                   <th className="p-4">Nº Orden</th>
-                  <th className="p-4">Transportista</th>
-                  <th className="p-4">Ruta</th>
                   <th className="p-4">Fecha</th>
-                  <th className="p-4">Precio</th>
+                  <th className="p-4">Transportista</th>
                   <th className="p-4 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -202,10 +200,8 @@ export default function PanelOrdenesCarga() {
                 {ordenesFiltradas.map((orden) => (
                   <tr key={orden.id} className="hover:bg-slate-50">
                     <td className="p-4 font-mono font-bold text-blue-900">{orden.id}</td>
-                    <td className="p-4">{orden.carrier_name}</td>
-                    <td className="p-4">{orden.origen || '—'} → {orden.destino || '—'}</td>
                     <td className="p-4 whitespace-nowrap">{orden.fecha ? new Date(orden.fecha).toLocaleDateString('es-ES') : '—'}</td>
-                    <td className="p-4">{orden.precio_concertado || '—'}</td>
+                    <td className="p-4">{orden.carrier_name}</td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-1.5">
                         <button
