@@ -348,31 +348,34 @@ export default function Dashboard() {
                         </select>
                       </td>
                       <td className="p-4 text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => router.push(`/modificar/${doc.id}`)}
-                            className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors"
+                            title="Editar"
+                            className="group flex items-center gap-1.5 h-8 w-8 hover:w-24 overflow-hidden px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-all duration-300"
                           >
-                            <FileEdit className="w-4 h-4 text-white" />
-                            Editar
+                            <FileEdit className="w-4 h-4 shrink-0" />
+                            <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Editar</span>
                           </button>
 
                           <button
                             onClick={() => handlePreviewPdf(doc)}
                             disabled={previewingId === doc.id}
-                            className="inline-flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                            title="Previsualizar"
+                            className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
                           >
-                            <Eye className="w-4 h-4 text-white" />
-                            {previewingId === doc.id ? 'Abriendo...' : 'Previsualizar'}
+                            <Eye className="w-4 h-4 shrink-0" />
+                            <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{previewingId === doc.id ? 'Abriendo...' : 'Ver'}</span>
                           </button>
 
                           <button
                             onClick={() => handleDownloadPdf(doc)}
                             disabled={downloadingId === doc.id}
-                            className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                            title="Descargar"
+                            className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
                           >
-                            <Download className="w-4 h-4 text-white" />
-                            {downloadingId === doc.id ? 'Generando...' : 'Descargar'}
+                            <Download className="w-4 h-4 shrink-0" />
+                            <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{downloadingId === doc.id ? 'Generando...' : 'Descargar'}</span>
                           </button>
                         </div>
                       </td>

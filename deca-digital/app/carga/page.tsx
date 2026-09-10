@@ -210,45 +210,50 @@ export default function PanelOrdenesCarga() {
                     <td className="p-4 whitespace-nowrap">{orden.fecha ? new Date(orden.fecha).toLocaleDateString('es-ES') : '—'}</td>
                     <td className="p-4">{orden.precio_concertado || '—'}</td>
                     <td className="p-4 text-right">
-                      <div className="flex justify-end gap-2 flex-wrap">
+                      <div className="flex justify-end gap-1.5">
                         <button
                           onClick={() => handleQuickNotify(orden, 'telefono')}
                           disabled={!orden.carrier_phone || notifyingId === orden.id}
                           title="Reenviar por WhatsApp"
-                          className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white w-8 h-8 rounded-lg shadow-sm transition-colors disabled:opacity-40"
+                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-40"
                         >
-                          <MessageCircle className="w-4 h-4" />
+                          <MessageCircle className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">WhatsApp</span>
                         </button>
                         <button
                           onClick={() => handleQuickNotify(orden, 'email')}
                           disabled={!orden.carrier_email || notifyingId === orden.id}
                           title="Reenviar por Email"
-                          className="inline-flex items-center justify-center bg-blue-800 hover:bg-blue-900 text-white w-8 h-8 rounded-lg shadow-sm transition-colors disabled:opacity-40"
+                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-24 disabled:hover:w-8 overflow-hidden px-2 bg-blue-800 hover:bg-blue-900 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-40"
                         >
-                          <Mail className="w-4 h-4" />
+                          <Mail className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Email</span>
                         </button>
                         <button
                           onClick={() => router.push(`/carga/modificar/${orden.id}`)}
-                          className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors"
+                          title="Editar"
+                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-24 overflow-hidden px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-all duration-300"
                         >
-                          <FileEdit className="w-4 h-4 text-white" />
-                          Editar
+                          <FileEdit className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Editar</span>
                         </button>
                         <button
                           onClick={() => handlePreview(orden)}
                           disabled={previewingId === orden.id}
-                          className="inline-flex items-center gap-1.5 bg-slate-600 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                          title="Previsualizar"
+                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
                         >
-                          <Eye className="w-4 h-4 text-white" />
-                          {previewingId === orden.id ? 'Abriendo...' : 'Previsualizar'}
+                          <Eye className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{previewingId === orden.id ? 'Abriendo...' : 'Ver'}</span>
                         </button>
                         <button
                           onClick={() => handleDownload(orden)}
                           disabled={downloadingId === orden.id}
-                          className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-colors disabled:opacity-50"
+                          title="Descargar"
+                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
                         >
-                          <Download className="w-4 h-4 text-white" />
-                          {downloadingId === orden.id ? 'Descargando...' : 'Descargar'}
+                          <Download className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{downloadingId === orden.id ? 'Cargando...' : 'Descargar'}</span>
                         </button>
                       </div>
                     </td>
