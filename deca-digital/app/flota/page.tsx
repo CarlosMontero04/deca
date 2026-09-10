@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { ArrowLeft, Truck, User, Trash2, Pencil, Plus, X } from 'lucide-react';
+import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut } from 'lucide-react';
 
 type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques';
 
@@ -14,6 +14,7 @@ export default function FlotaPanel() {
   const [tab, setTab] = useState<Tab>('empresa');
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [companySaved, setCompanySaved] = useState(false);
 
@@ -61,11 +62,17 @@ export default function FlotaPanel() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
       setUserId(session.user.id);
+      setUser(session.user);
       await loadAll(session.user.id);
       setLoading(false);
     };
     init();
   }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   const resetForms = () => {
     setCarrierForm({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
@@ -196,22 +203,44 @@ export default function FlotaPanel() {
   const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q));
   const filteredTrailers = trailers.filter(t => !q || t.trailer_plate?.toLowerCase().includes(q));
 
-  if (loading) return <div className="p-10 text-center">Cargando panel de flota...</div>;
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#2A1670]"></div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 sm:p-10">
-      <div className="max-w-5xl mx-auto w-full">
-        <button onClick={() => router.push('/')} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-6 font-semibold">
-          <ArrowLeft className="w-4 h-4" /> Volver al Menú Principal
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
+      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
+        <button onClick={() => router.push('/')} className="flex items-center gap-2" title="Ir al menú principal">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-operpal-icon.png" alt="OPERPAL" className="w-9 h-9 object-contain" />
+          <h1 className="text-lg font-bold text-slate-800">Gestión de Flota</h1>
         </button>
+        <div className="flex items-center gap-4">
+          <button onClick={() => router.push('/')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Menú principal">
+            <Home className="w-5 h-5" />
+          </button>
+          <div className="h-8 w-px bg-slate-200"></div>
+          <span className="text-sm text-slate-500 hidden sm:inline">{user.email}</span>
+          <button onClick={handleLogout} className="text-slate-400 hover:text-rose-600" title="Cerrar sesión">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 mb-6">
+      <div className="flex-1 p-6 sm:p-10 max-w-6xl w-full mx-auto space-y-6">
+        <div>
           <h2 className="text-2xl font-bold text-slate-800">Gestión de Flota</h2>
-          <p className="text-sm text-slate-500 mt-1">Guarda tus transportistas, conductores y tractoras habituales para rellenar los DeCA más rápido.</p>
+          <p className="text-sm text-slate-500">Guarda tus transportistas, conductores, tractoras y remolques habituales para rellenar los DeCA y Órdenes de Carga más rápido.</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex gap-2 flex-wrap">
             {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques'] as Tab[]).map(t => (
               <button
                 key={t}

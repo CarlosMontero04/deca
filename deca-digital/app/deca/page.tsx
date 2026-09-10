@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, Truck, FileText, PlusCircle, Download, FileEdit, Eye, Home } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home } from 'lucide-react';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 
 export default function Dashboard() {
@@ -239,20 +239,6 @@ export default function Dashboard() {
             <p className="text-sm text-slate-500">Panel de gestión y control en tiempo real</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => router.push('/carga')}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
-            >
-              <FileText className="w-5 h-5" />
-              Órdenes de Carga
-            </button>
-            <button
-              onClick={() => router.push('/flota')}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
-            >
-              <Truck className="w-5 h-5" />
-              Gestionar Flota
-            </button>
             <button 
               onClick={() => router.push('/emitir')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"

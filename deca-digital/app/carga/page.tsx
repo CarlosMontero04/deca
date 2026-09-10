@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, FileText, PlusCircle, Download, Truck, Eye, FileEdit, MessageCircle, Mail, Home } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, Eye, FileEdit, MessageCircle, Mail, Home } from 'lucide-react';
 import { notifyCarrierOrden } from '../utils/notifyCarrierOrden';
 
 export default function PanelOrdenesCarga() {
@@ -142,13 +142,6 @@ export default function PanelOrdenesCarga() {
             <p className="text-sm text-slate-500">Encargos a transportistas subcontratados</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => router.push('/deca')}
-              className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
-            >
-              <Truck className="w-5 h-5" />
-              DeCA Digital
-            </button>
             <button
               onClick={() => router.push('/carga/nueva')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
