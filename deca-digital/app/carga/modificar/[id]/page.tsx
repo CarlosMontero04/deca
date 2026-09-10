@@ -69,9 +69,9 @@ export default function ModificarOrdenCarga() {
 
       const [ordenRes, c, t, tr] = await Promise.all([
         supabase.from('ordenes_carga').select('*').eq('id', id).single(),
-        supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
-        supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
-        supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
+        supabase.from('carriers').select('*').order('company_name'),
+        supabase.from('tractors').select('*').order('tractor_plate'),
+        supabase.from('trailers').select('*').order('trailer_plate'),
       ]);
 
       if (ordenRes.data) {

@@ -86,10 +86,10 @@ export default function EmitirDeca() {
       if (!session) return;
       const uid = session.user.id;
       const [c, d, t, tr, company] = await Promise.all([
-        supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
-        supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
-        supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
-        supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
+        supabase.from('carriers').select('*').order('company_name'),
+        supabase.from('drivers').select('*').order('name'),
+        supabase.from('tractors').select('*').order('tractor_plate'),
+        supabase.from('trailers').select('*').order('trailer_plate'),
         supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
       ]);
       setSavedCarriers(c.data || []);
@@ -161,10 +161,10 @@ export default function EmitirDeca() {
     if (!session) return;
     const uid = session.user.id;
     const [c, d, t, tr] = await Promise.all([
-      supabase.from('carriers').select('*').eq('user_id', uid).order('company_name'),
-      supabase.from('drivers').select('*').eq('user_id', uid).order('name'),
-      supabase.from('tractors').select('*').eq('user_id', uid).order('tractor_plate'),
-      supabase.from('trailers').select('*').eq('user_id', uid).order('trailer_plate'),
+      supabase.from('carriers').select('*').order('company_name'),
+      supabase.from('drivers').select('*').order('name'),
+      supabase.from('tractors').select('*').order('tractor_plate'),
+      supabase.from('trailers').select('*').order('trailer_plate'),
     ]);
     setSavedCarriers(c.data || []);
     setSavedDrivers(d.data || []);
