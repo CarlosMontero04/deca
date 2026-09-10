@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle } from 'lucide-react';
@@ -36,6 +36,28 @@ export default function FlotaPanel() {
   const [trailerForm, setTrailerForm] = useState({ id: '', trailer_plate: '', carrier_id: '' });
   // Formulario de Ubicación (origen/destino guardado, con título para buscarlo)
   const [locationForm, setLocationForm] = useState({ id: '', title: '', address: '' });
+
+  // Hace que una caja de texto crezca sola según el contenido, en vez de
+  // quedarse con una altura fija y barra de scroll — igual que en Órdenes de Carga.
+  const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  const resizeEl = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  const locationTitleRef = useRef<HTMLTextAreaElement>(null);
+  const locationAddressRef = useRef<HTMLTextAreaElement>(null);
+
+  // Se ejecuta ante cualquier cambio del formulario de ubicación — al escribir
+  // o al precargarse al editar una ya existente.
+  useLayoutEffect(() => {
+    resizeEl(locationTitleRef.current);
+    resizeEl(locationAddressRef.current);
+  }, [locationForm.title, locationForm.address]);
 
   const loadAll = async (uid: string) => {
     const [c, d, t, tr, loc, e] = await Promise.all([
@@ -482,8 +504,8 @@ export default function FlotaPanel() {
               <h3 className="font-bold text-slate-800 flex items-center gap-2">{locationForm.id ? 'Editar' : 'Nueva'} Ubicación</h3>
               <p className="text-xs text-slate-500">Guarda un origen o destino habitual con un título corto para encontrarlo rápido al rellenar una Orden de Carga.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input required placeholder="Título (ej. Almacén Huelva)" value={locationForm.title} onChange={e => setLocationForm({ ...locationForm, title: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
-                <input required placeholder="Dirección completa" value={locationForm.address} onChange={e => setLocationForm({ ...locationForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={locationTitleRef} required placeholder="Título (ej. Almacén Huelva)" value={locationForm.title} onChange={e => { setLocationForm({ ...locationForm, title: e.target.value }); autoResize(e); }} rows={1} className="px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+                <textarea ref={locationAddressRef} required placeholder="Dirección completa" value={locationForm.address} onChange={e => { setLocationForm({ ...locationForm, address: e.target.value }); autoResize(e); }} rows={1} className="px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div className="flex gap-2">
                 <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> {locationForm.id ? 'Guardar Cambios' : 'Añadir'}</button>
