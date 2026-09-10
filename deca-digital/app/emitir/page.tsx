@@ -371,7 +371,7 @@ export default function EmitirDeca() {
       <div className="max-w-4xl mx-auto w-full">
         
         <button 
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/deca')}
           className="flex items-center gap-2 text-slate-500 hover:text-blue-600 font-semibold mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -446,7 +446,7 @@ export default function EmitirDeca() {
             )}
             <button
               type="button"
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/deca')}
               className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl transition"
             >
               Ir al Tablero

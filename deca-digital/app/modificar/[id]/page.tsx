@@ -297,7 +297,7 @@ export default function ModificarDeca() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 sm:p-10">
       <div className="max-w-2xl mx-auto w-full">
-        <button onClick={() => router.push('/')} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-6 font-semibold">
+        <button onClick={() => router.push('/deca')} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-6 font-semibold">
           <ArrowLeft className="w-4 h-4" /> Volver al Tablero
         </button>
 
@@ -372,7 +372,7 @@ export default function ModificarDeca() {
             )}
             <button
               type="button"
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/deca')}
               className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 rounded-xl transition"
             >
               Ir al Tablero

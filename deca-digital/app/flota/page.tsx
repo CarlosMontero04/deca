@@ -202,7 +202,7 @@ export default function FlotaPanel() {
     <div className="min-h-screen bg-slate-50 p-6 sm:p-10">
       <div className="max-w-5xl mx-auto w-full">
         <button onClick={() => router.push('/')} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-6 font-semibold">
-          <ArrowLeft className="w-4 h-4" /> Volver al Tablero
+          <ArrowLeft className="w-4 h-4" /> Volver al Menú Principal
         </button>
 
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 mb-6">
