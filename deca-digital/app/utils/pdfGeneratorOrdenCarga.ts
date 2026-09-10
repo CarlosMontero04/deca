@@ -15,8 +15,10 @@ export interface OrdenCarga {
   carrierPhone?: string;
   carrierPlates?: string;
   fechaCarga?: string;
+  horaCarga?: string;
   origen?: string;
   fechaDescarga?: string;
+  horaDescarga?: string;
   destino?: string;
   mercancia?: string;
   precioConcertado?: string;
@@ -84,12 +86,13 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
     'B-14746523',
     'Tlf.: 957643448 / 957710325',
     'operpal@operpal.com',
+    'trafico@operpal.com',
   ];
   headerLines.forEach((line, i) => {
     doc.text(line, pageWidth - margin, 19 + i * 4, { align: 'right' });
   });
 
-  let y = 42;
+  let y = 46;
   doc.setTextColor(...NAVY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
@@ -144,9 +147,9 @@ export async function generateOrdenCargaPdf(orden: OrdenCarga) {
   drawRow('E Mail.:', orden.carrierEmail || '—');
   drawRow('Teléfono.:', orden.carrierPhone || '—');
   drawRow('Matrículas.:', orden.carrierPlates || '—');
-  drawRow('Fecha de carga.:', fechaCorta(orden.fechaCarga));
+  drawRow('Fecha de carga.:', fechaCorta(orden.fechaCarga) + (orden.horaCarga ? `, ${orden.horaCarga}h` : ''));
   drawRow('Origen.:', orden.origen || '—');
-  drawRow('Fecha de descarga.:', fechaCorta(orden.fechaDescarga));
+  drawRow('Fecha de descarga.:', fechaCorta(orden.fechaDescarga) + (orden.horaDescarga ? `, ${orden.horaDescarga}h` : ''));
   drawRow('Destino.:', orden.destino || '—');
   drawRow('Mercancía.:', orden.mercancia || '—');
 

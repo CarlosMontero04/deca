@@ -25,8 +25,10 @@ export default function NuevaOrdenCarga() {
   const [carrierPhone, setCarrierPhone] = useState('');
   const [carrierPlates, setCarrierPlates] = useState('');
   const [fechaCarga, setFechaCarga] = useState('');
+  const [horaCarga, setHoraCarga] = useState('');
   const [origen, setOrigen] = useState('');
   const [fechaDescarga, setFechaDescarga] = useState('');
+  const [horaDescarga, setHoraDescarga] = useState('');
   const [destino, setDestino] = useState('');
   const [mercancia, setMercancia] = useState('');
   const [precioConcertado, setPrecioConcertado] = useState('');
@@ -37,6 +39,14 @@ export default function NuevaOrdenCarga() {
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
   const [selectedTractorPlate, setSelectedTractorPlate] = useState('');
   const [selectedTrailerPlate, setSelectedTrailerPlate] = useState('');
+
+  // Hace que una caja de texto crezca sola según el contenido, en vez de
+  // quedarse con una altura fija y barra de scroll.
+  const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   useEffect(() => {
     const loadFleet = async () => {
@@ -104,8 +114,10 @@ export default function NuevaOrdenCarga() {
         carrierPhone,
         carrierPlates,
         fechaCarga,
+        horaCarga,
         origen,
         fechaDescarga,
+        horaDescarga,
         destino,
         mercancia,
         precioConcertado,
@@ -128,8 +140,10 @@ export default function NuevaOrdenCarga() {
         carrier_phone: carrierPhone || null,
         carrier_plates: carrierPlates || null,
         fecha_carga: fechaCarga || null,
+        hora_carga: horaCarga || null,
         origen: origen || null,
         fecha_descarga: fechaDescarga || null,
+        hora_descarga: horaDescarga || null,
         destino: destino || null,
         mercancia: mercancia || null,
         precio_concertado: precioConcertado || null,
@@ -263,7 +277,15 @@ export default function NuevaOrdenCarga() {
             </button>
           </div>
         ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+          className="space-y-6"
+        >
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">Transportista</h3>
@@ -329,13 +351,22 @@ export default function NuevaOrdenCarga() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha</label>
                 <input type="date" required value={fecha} onChange={e => setFecha(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Mercancía</label>
-                <input type="text" value={mercancia} onChange={e => setMercancia(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea
+                  value={mercancia}
+                  onChange={e => { setMercancia(e.target.value); autoResize(e); }}
+                  rows={1}
+                  className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Carga</label>
                 <input type="date" value={fechaCarga} onChange={e => setFechaCarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Hora de Carga (opcional)</label>
+                <input type="time" value={horaCarga} onChange={e => setHoraCarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Origen</label>
@@ -344,6 +375,10 @@ export default function NuevaOrdenCarga() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Descarga</label>
                 <input type="date" value={fechaDescarga} onChange={e => setFechaDescarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Hora de Descarga (opcional)</label>
+                <input type="time" value={horaDescarga} onChange={e => setHoraDescarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Destino</label>
@@ -360,7 +395,12 @@ export default function NuevaOrdenCarga() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
-              <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <textarea
+                value={observaciones}
+                onChange={e => { setObservaciones(e.target.value); autoResize(e); }}
+                rows={2}
+                className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden"
+              />
             </div>
           </div>
 

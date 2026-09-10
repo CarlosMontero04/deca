@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '../../../utils/supabase/client';
 import { generateOrdenCargaPdf } from '../../../utils/pdfGeneratorOrdenCarga';
@@ -27,8 +27,10 @@ export default function ModificarOrdenCarga() {
   const [carrierPhone, setCarrierPhone] = useState('');
   const [carrierPlates, setCarrierPlates] = useState('');
   const [fechaCarga, setFechaCarga] = useState('');
+  const [horaCarga, setHoraCarga] = useState('');
   const [origen, setOrigen] = useState('');
   const [fechaDescarga, setFechaDescarga] = useState('');
+  const [horaDescarga, setHoraDescarga] = useState('');
   const [destino, setDestino] = useState('');
   const [mercancia, setMercancia] = useState('');
   const [precioConcertado, setPrecioConcertado] = useState('');
@@ -37,6 +39,20 @@ export default function ModificarOrdenCarga() {
   const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
+  const mercanciaRef = useRef<HTMLTextAreaElement>(null);
+  const observacionesRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  const resizeEl = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -59,8 +75,10 @@ export default function ModificarOrdenCarga() {
         setCarrierPhone(o.carrier_phone || '');
         setCarrierPlates(o.carrier_plates || '');
         setFechaCarga(o.fecha_carga || '');
+        setHoraCarga(o.hora_carga || '');
         setOrigen(o.origen || '');
         setFechaDescarga(o.fecha_descarga || '');
+        setHoraDescarga(o.hora_descarga || '');
         setDestino(o.destino || '');
         setMercancia(o.mercancia || '');
         setPrecioConcertado(o.precio_concertado || '');
@@ -74,6 +92,15 @@ export default function ModificarOrdenCarga() {
     };
     load();
   }, [id]);
+
+  // Al cargar una orden ya existente, las cajas de texto largo deben verse
+  // expandidas desde el primer momento, no solo cuando el usuario escribe.
+  useEffect(() => {
+    if (!loading) {
+      resizeEl(mercanciaRef.current);
+      resizeEl(observacionesRef.current);
+    }
+  }, [loading]);
 
   const handleSelectCarrier = (carrierId: string) => {
     const c = savedCarriers.find(c => c.id === carrierId);
@@ -108,7 +135,7 @@ export default function ModificarOrdenCarga() {
     try {
       const orden = {
         id, fecha, carrierName, carrierEmail, carrierPhone, carrierPlates,
-        fechaCarga, origen, fechaDescarga, destino, mercancia, precioConcertado, observaciones,
+        fechaCarga, horaCarga, origen, fechaDescarga, horaDescarga, destino, mercancia, precioConcertado, observaciones,
       };
 
       const { blob, sizeBytes } = await generateOrdenCargaPdf(orden);
@@ -127,8 +154,10 @@ export default function ModificarOrdenCarga() {
         carrier_phone: carrierPhone || null,
         carrier_plates: carrierPlates || null,
         fecha_carga: fechaCarga || null,
+        hora_carga: horaCarga || null,
         origen: origen || null,
         fecha_descarga: fechaDescarga || null,
+        hora_descarga: horaDescarga || null,
         destino: destino || null,
         mercancia: mercancia || null,
         precio_concertado: precioConcertado || null,
@@ -219,7 +248,15 @@ export default function ModificarOrdenCarga() {
             </button>
           </div>
         ) : (
-        <form onSubmit={handleUpdate} className="space-y-6">
+        <form
+          onSubmit={handleUpdate}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+              e.preventDefault();
+            }
+          }}
+          className="space-y-6"
+        >
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">Transportista</h3>
@@ -285,13 +322,23 @@ export default function ModificarOrdenCarga() {
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha</label>
                 <input type="date" required value={fecha} onChange={e => setFecha(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Mercancía</label>
-                <input type="text" value={mercancia} onChange={e => setMercancia(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea
+                  ref={mercanciaRef}
+                  value={mercancia}
+                  onChange={e => { setMercancia(e.target.value); autoResize(e); }}
+                  rows={1}
+                  className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Carga</label>
                 <input type="date" value={fechaCarga} onChange={e => setFechaCarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Hora de Carga (opcional)</label>
+                <input type="time" value={horaCarga} onChange={e => setHoraCarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Origen</label>
@@ -300,6 +347,10 @@ export default function ModificarOrdenCarga() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Descarga</label>
                 <input type="date" value={fechaDescarga} onChange={e => setFechaDescarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Hora de Descarga (opcional)</label>
+                <input type="time" value={horaDescarga} onChange={e => setHoraDescarga(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Destino</label>
@@ -316,7 +367,13 @@ export default function ModificarOrdenCarga() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Observaciones</label>
-              <textarea value={observaciones} onChange={e => setObservaciones(e.target.value)} rows={3} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <textarea
+                ref={observacionesRef}
+                value={observaciones}
+                onChange={e => { setObservaciones(e.target.value); autoResize(e); }}
+                rows={2}
+                className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden"
+              />
             </div>
           </div>
 
