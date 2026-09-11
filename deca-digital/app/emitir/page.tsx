@@ -394,6 +394,7 @@ export default function EmitirDeca() {
           observations: newDeca.observations || null,
           internal_title: newDeca.internalTitle || null,
           stops: newDeca.stops || [],
+          legal_retention_expires_date: newDeca.legalRetentionExpiresDate,
           user_id: userId
         }
       ]);

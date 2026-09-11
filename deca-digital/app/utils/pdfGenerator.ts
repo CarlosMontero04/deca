@@ -59,6 +59,14 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
   const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-ES');
   const fechaLarga = (iso: string) => new Date(iso).toLocaleString('es-ES');
+  // Documentos creados antes de que se guardara bien este dato pueden no
+  // tenerlo — en vez de mostrar "Invalid Date", calculamos 1 año desde la
+  // creación como respaldo razonable.
+  const fechaConservacion = () => {
+    const intento = new Date(deca.legalRetentionExpiresDate);
+    if (deca.legalRetentionExpiresDate && !isNaN(intento.getTime())) return fechaCorta(deca.legalRetentionExpiresDate);
+    return fechaCorta(new Date(new Date(deca.creationDate).getTime() + 31536000000).toISOString());
+  };
 
   // --- CABECERA ---
   const logoWidth = 42;
@@ -266,26 +274,33 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(8);
   if (deca.history && deca.history.length > 0) {
     deca.history.forEach((h) => {
-      // Calculamos cuánto va a ocupar esta entrada antes de dibujarla, para
-      // saltar de página si no cabe entera — el historial es lo que más
-      // crece con el tiempo, cada modificación añade una entrada más.
-      const alturaEntrada = 4.3 + (h.field ? 4.3 : 0) + (h.details ? 4.3 : 0) + 5.5;
+      // El valor modificado puede tener varias líneas (por ejemplo, una lista
+      // de paradas) — hay que envolverlo de verdad, no solo dar por hecho una
+      // línea, o el texto de abajo se solapa con el de arriba.
+      const campoLines = h.field
+        ? doc.splitTextToSize(`Campo modificado: ${h.field} — Antes: "${h.previousValue || 'N/A'}" -> Ahora: "${h.newValue || 'N/A'}"`, pageWidth - margin * 2)
+        : [];
+      const detalleLines = h.details
+        ? doc.splitTextToSize(`Detalle: ${h.details}`, pageWidth - margin * 2)
+        : [];
+
+      const alturaEntrada = 4.3 + campoLines.length * 4.3 + detalleLines.length * 4.3 + 5.5;
       y = ensureSpace(y, alturaEntrada);
 
       doc.setTextColor(...NAVY);
       doc.setFont('helvetica', 'bold');
       doc.text(`v${h.version}  ·  ${fechaLarga(h.timestamp)}  ·  ${h.reason}`, margin, y);
       y += 4.3;
-      if (h.field) {
+      if (campoLines.length > 0) {
         doc.setTextColor(...ORANGE);
-        doc.text(`Campo modificado: ${h.field} — Antes: "${h.previousValue || 'N/A'}" -> Ahora: "${h.newValue || 'N/A'}"`, margin, y);
-        y += 4.3;
+        doc.text(campoLines, margin, y);
+        y += campoLines.length * 4.3;
       }
-      if (h.details) {
+      if (detalleLines.length > 0) {
         doc.setTextColor(...GRAY_DARK);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Detalle: ${h.details}`, margin, y);
-        y += 4.3;
+        doc.text(detalleLines, margin, y);
+        y += detalleLines.length * 4.3;
       }
       doc.setTextColor(...GRAY_MUTED);
       doc.setFont('helvetica', 'normal');
@@ -329,7 +344,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setTextColor(...GRAY_MUTED);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.text('1. Archivo legal obligatorio durante un mínimo de 1 año (Fecha límite legal de conservación: ' + fechaCorta(deca.legalRetentionExpiresDate) + ').', margin, y);
+  doc.text('1. Archivo legal obligatorio durante un mínimo de 1 año (Fecha límite legal de conservación: ' + fechaConservacion() + ').', margin, y);
   y += 3.5;
   doc.text(`2. Sello de Integridad (Hash): ${deca.digitalSignature}`, margin, y);
   y += 3.5;
