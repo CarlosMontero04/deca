@@ -87,6 +87,11 @@ export async function POST(req: NextRequest) {
     await transporter.sendMail({
       from: `"OPERPAL" <${credenciales.from}>`,
       to,
+      // Copia oculta a la propia cuenta que envía — así queda constancia del
+      // envío en tu bandeja de entrada, ya que el SMTP en bruto no guarda
+      // copia en "Enviados" por sí solo (eso lo hacen los clientes de correo,
+      // no el envío directo por SMTP).
+      bcc: credenciales.user,
       subject,
       text,
       attachments,
