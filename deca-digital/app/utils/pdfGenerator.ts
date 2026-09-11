@@ -20,9 +20,22 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
 
+  // Si no queda espacio suficiente en lo que resta de página, salta a una
+  // nueva — así el documento nunca corta contenido por el borde inferior,
+  // por muy largo que crezca (muchas paradas, mucho historial, etc.).
+  const ensureSpace = (currentY: number, needed: number) => {
+    if (currentY + needed > pageHeight - 15) {
+      doc.addPage();
+      return 15;
+    }
+    return currentY;
+  };
+
   const sectionHeader = (text: string, y: number) => {
+    y = ensureSpace(y, 16);
     doc.setFillColor(...NAVY);
     doc.roundedRect(margin, y, pageWidth - margin * 2, 6, 1, 1, 'F');
     doc.setTextColor(255, 255, 255);
@@ -71,8 +84,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...ORANGE);
-  doc.setFontSize(8.5);
-  doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 35.5);
+  doc.setFontSize(11);
+  doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 36);
 
   
 
@@ -164,6 +177,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     doc.setFontSize(8);
     const lines = doc.splitTextToSize(p.texto, rutaTextWidth);
     const rowH = Math.max(9, lines.length * 3.8 + 4);
+    y = ensureSpace(y, rowH);
 
     // Línea vertical conectando con el siguiente punto de la ruta
     if (idx < puntosRuta.length - 1) {
@@ -216,6 +230,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     cantidades.push(s.packageCount);
     totalPeso += s.grossWeightKg;
 
+    y = ensureSpace(y, rowHeight);
+
     if (idx % 2 === 1) {
       doc.setFillColor(250, 250, 252);
       doc.rect(margin, y, pageWidth - margin * 2, rowHeight, 'F');
@@ -250,6 +266,12 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(8);
   if (deca.history && deca.history.length > 0) {
     deca.history.forEach((h) => {
+      // Calculamos cuánto va a ocupar esta entrada antes de dibujarla, para
+      // saltar de página si no cabe entera — el historial es lo que más
+      // crece con el tiempo, cada modificación añade una entrada más.
+      const alturaEntrada = 4.3 + (h.field ? 4.3 : 0) + (h.details ? 4.3 : 0) + 5.5;
+      y = ensureSpace(y, alturaEntrada);
+
       doc.setTextColor(...NAVY);
       doc.setFont('helvetica', 'bold');
       doc.text(`v${h.version}  ·  ${fechaLarga(h.timestamp)}  ·  ${h.reason}`, margin, y);
@@ -291,6 +313,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   }
 
   // --- PIE DE PÁGINA ---
+  y = ensureSpace(y, 32);
   y += 1;
   doc.setDrawColor(...NAVY);
   doc.setLineWidth(0.4);
