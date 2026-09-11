@@ -9,7 +9,7 @@ export interface ShipmentItem {
   destinationPostalCode: string;
   goodsDescription: string;
   goodsCategory: 'General' | 'Perecedera' | 'Peligrosa (ADR)' | 'Fraccionada' | 'Maquinaria';
-  packageCount: number;
+  packageCount: string;
   grossWeightKg: number;
   shipperName: string;
   consigneeName: string;

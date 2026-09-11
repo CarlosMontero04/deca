@@ -137,8 +137,58 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   y += 4.5;*/
   
 
-  // --- 3. DESGLOSE OBLIGATORIO DE ENVÍOS ---
-  y = sectionHeader('3. DATOS DE LA EXPEDICIÓN', y);
+  // --- 3. ORIGEN, DESTINO Y PARADAS ---
+  y = sectionHeader('3. ORIGEN, DESTINO Y PARADAS', y);
+
+  // Origen/destino se leen siempre de shipments[0] — una única fuente de
+  // verdad para todo el documento — con la ruta principal del formulario
+  // como respaldo si un documento antiguo no tuviera envíos cargados.
+  const origenPrincipal = deca.shipments?.[0]?.originAddress || deca.route.originMain;
+  const destinoPrincipal = deca.shipments?.[0]?.destinationAddress || deca.route.destinationMain;
+  const puntosRuta: { tipo: string; texto: string }[] = [
+    { tipo: 'ORIGEN', texto: origenPrincipal },
+    ...(deca.stops || []).map((s) => ({ tipo: 'PARADA', texto: s })),
+    { tipo: 'DESTINO', texto: destinoPrincipal },
+  ];
+
+  const dotX = margin + 3;
+  const textX = margin + 11;
+  const rutaTextWidth = pageWidth - margin * 2 - 11;
+
+  puntosRuta.forEach((p, idx) => {
+    const esExtremo = p.tipo === 'ORIGEN' || p.tipo === 'DESTINO';
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    const lines = doc.splitTextToSize(p.texto, rutaTextWidth);
+    const rowH = Math.max(9, lines.length * 3.8 + 4);
+
+    // Línea vertical conectando con el siguiente punto de la ruta
+    if (idx < puntosRuta.length - 1) {
+      doc.setDrawColor(210, 208, 220);
+      doc.setLineWidth(0.6);
+      doc.line(dotX, y + 1.5, dotX, y + rowH + 1.5);
+    }
+
+    // Punto: más grande y en navy para origen/destino, más pequeño y naranja para paradas
+    doc.setFillColor(...(esExtremo ? NAVY : ORANGE));
+    doc.circle(dotX, y + 1.5, esExtremo ? 1.7 : 1.2, 'F');
+
+    doc.setTextColor(...(esExtremo ? NAVY : ORANGE));
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.text(p.tipo, textX, y + 1);
+
+    doc.setTextColor(...GRAY_DARK);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(lines, textX, y + 5.3);
+
+    y += rowH;
+  });
+  y += 5;
+
+  // --- 4. NATURALEZA, PESO Y CANTIDAD DE LA MERCANCÍA ---
+  y = sectionHeader('4. NATURALEZA, PESO Y CANTIDAD DE LA MERCANCÍA', y);
 
   doc.setFillColor(...GRAY_BG);
   doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
@@ -146,21 +196,21 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   const colRef = margin + 2;
-  const colOrigen = margin + 24;
+  const colNaturaleza = margin + 24;
+  const colBultos = pageWidth - margin - 55;
   const colPeso = pageWidth - margin - 2;
   doc.text('#/Ref', colRef, y + 4);
-  doc.text('Origen -> Destino', colOrigen, y + 4);
+  doc.text('Naturaleza de la Mercancía', colNaturaleza, y + 4);
+  doc.text('Bultos', colBultos, y + 4);
+  doc.text('Peso', colPeso, y + 4, { align: 'right' });
   y += 6;
 
-  let totalBultos = 0;
+  const cantidades: string[] = [];
   let totalPeso = 0;
-  // Las paradas son del viaje completo, no de un envío en concreto, así que se
-  // muestran igual en cada fila — si no hay paradas, la fila no crece de más.
-  const stopsLine = deca.stops && deca.stops.length > 0 ? `Paradas: ${deca.stops.join(' -> ')}` : null;
-  const rowHeight = stopsLine ? 17 : 13;
+  const rowHeight = 8;
 
   deca.shipments.forEach((s, idx) => {
-    totalBultos += s.packageCount;
+    cantidades.push(s.packageCount);
     totalPeso += s.grossWeightKg;
 
     if (idx % 2 === 1) {
@@ -170,17 +220,11 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(...NAVY);
-    doc.text(`${idx + 1}. ${s.trackingNumber}`, colRef, y + 4);
-    doc.text(truncateToWidth(`${s.originAddress}  ->  ${s.destinationAddress}`, colPeso - colOrigen), colOrigen, y + 4);
-
-    doc.setFontSize(8);
-    doc.setTextColor(...NAVY);
-    doc.text(truncateToWidth(`Mercancía: ${s.goodsDescription}`, colPeso - colOrigen), colOrigen, y + 9);
-
-    if (stopsLine) {
-      doc.text(truncateToWidth(stopsLine, colPeso - colOrigen), colOrigen, y + 13);
-    }
+    doc.setTextColor(...GRAY_DARK);
+    doc.text(`${idx + 1}. ${s.trackingNumber}`, colRef, y + 5);
+    doc.text(truncateToWidth(s.goodsDescription, colBultos - colNaturaleza - 4), colNaturaleza, y + 5);
+    doc.text(truncateToWidth(s.packageCount, colPeso - colBultos - 16), colBultos, y + 5);
+    doc.text(`${s.grossWeightKg} kg`, colPeso, y + 5, { align: 'right' });
 
     y += rowHeight;
   });
@@ -189,14 +233,15 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(...NAVY);
-  
-  doc.text(`BULTOS TOTALES: ${totalBultos}`, margin, y);
-  y += 4.5;
+
+  const cantidadLines = doc.splitTextToSize(`CANTIDAD: ${cantidades.join(', ')}`, pageWidth - margin * 2);
+  doc.text(cantidadLines, margin, y);
+  y += cantidadLines.length * 4.2 + 0.3;
   doc.text(`PESO TOTAL CARGA: ${totalPeso} KG (${(totalPeso / 1000).toFixed(2)} TONELADAS)`, margin, y);
   y += 9;
 
-  // --- 4. HISTORIAL DE MODIFICACIONES ---
-  y = sectionHeader('4. HISTORIAL DE MODIFICACIONES EN RUTA', y);
+  // --- 5. HISTORIAL DE MODIFICACIONES ---
+  y = sectionHeader('5. HISTORIAL DE MODIFICACIONES EN RUTA', y);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
@@ -230,9 +275,9 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     y += 7;
   }
 
-  // --- 5. OBSERVACIONES / RESERVAS ---
+  // --- 6. OBSERVACIONES / RESERVAS ---
   if (deca.observations && deca.observations.trim().length > 0) {
-    y = sectionHeader('5. OBSERVACIONES', y);
+    y = sectionHeader('6. OBSERVACIONES', y);
 
     doc.setTextColor(...GRAY_DARK);
     doc.setFont('helvetica', 'normal');

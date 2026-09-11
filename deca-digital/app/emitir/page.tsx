@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, ArrowLeft, Save, Truck } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
@@ -60,6 +60,58 @@ export default function EmitirDeca() {
 
   // Paradas intermedias (opcional, una por línea)
   const [stopsText, setStopsText] = useState('');
+
+  // Hace que una caja de texto crezca sola según el contenido, en vez de
+  // quedarse con una altura fija y barra de scroll — igual que en Órdenes de Carga.
+  const autoResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  const resizeEl = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  const internalTitleRef = useRef<HTMLTextAreaElement>(null);
+  const shipperNameRef = useRef<HTMLTextAreaElement>(null);
+  const shipperCifRef = useRef<HTMLTextAreaElement>(null);
+  const shipperAddressRef = useRef<HTMLTextAreaElement>(null);
+  const shipperPhoneRef = useRef<HTMLTextAreaElement>(null);
+  const shipperEmailRef = useRef<HTMLTextAreaElement>(null);
+  const carrierNameRef = useRef<HTMLTextAreaElement>(null);
+  const carrierCifRef = useRef<HTMLTextAreaElement>(null);
+  const carrierAddressRef = useRef<HTMLTextAreaElement>(null);
+  const driverNameRef = useRef<HTMLTextAreaElement>(null);
+  const driverDniRef = useRef<HTMLTextAreaElement>(null);
+  const driverEmailRef = useRef<HTMLTextAreaElement>(null);
+  const carrierPhoneRef = useRef<HTMLTextAreaElement>(null);
+  const originRef = useRef<HTMLTextAreaElement>(null);
+  const destinationRef = useRef<HTMLTextAreaElement>(null);
+  const goodsDescRef = useRef<HTMLTextAreaElement>(null);
+  const packageCountRef = useRef<HTMLTextAreaElement>(null);
+  const grossWeightRef = useRef<HTMLTextAreaElement>(null);
+  const tractorPlateRef = useRef<HTMLTextAreaElement>(null);
+  const trailerPlateRef = useRef<HTMLTextAreaElement>(null);
+  const trailerPlate2Ref = useRef<HTMLTextAreaElement>(null);
+  const stopsTextRef = useRef<HTMLTextAreaElement>(null);
+  const observationsRef = useRef<HTMLTextAreaElement>(null);
+
+  // Se ejecuta ante CUALQUIER cambio de estos valores — al escribir o al
+  // rellenarse solo desde un desplegable de flota — así todas las cajas se
+  // ajustan siempre, no solo cuando escribes directamente.
+  useLayoutEffect(() => {
+    [internalTitleRef, shipperNameRef, shipperCifRef, shipperAddressRef, shipperPhoneRef, shipperEmailRef,
+     carrierNameRef, carrierCifRef, carrierAddressRef, driverNameRef, driverDniRef, driverEmailRef, carrierPhoneRef,
+     originRef, destinationRef, goodsDescRef, packageCountRef, grossWeightRef,
+     tractorPlateRef, trailerPlateRef, trailerPlate2Ref, stopsTextRef, observationsRef].forEach(r => resizeEl(r.current));
+  }, [internalTitle, shipperName, shipperCif, shipperAddress, shipperPhone, shipperEmail,
+      carrierName, carrierCif, carrierAddress, driverName, driverDni, driverEmail, carrierPhone,
+      origin, destination, goodsDesc, packageCount, grossWeight,
+      tractorPlate, trailerPlate, trailerPlate2, stopsText, observations]);
+
+
 
   // Tras guardar con éxito, guardamos aquí lo necesario para notificar al conductor
   // mediante un clic explícito (ver por qué en notifyDriver.ts)
@@ -286,7 +338,7 @@ export default function EmitirDeca() {
             destinationPostalCode: '08001',
             goodsDescription: goodsDesc,
             goodsCategory: 'General',
-            packageCount: parseInt(packageCount) || 1,
+            packageCount: packageCount,
             grossWeightKg: parseFloat(grossWeight) || 0,
             shipperName: shipperName,
             consigneeName: destination,
@@ -458,7 +510,7 @@ export default function EmitirDeca() {
           {/* Título interno: solo para tu gestión, no forma parte del documento legal */}
           <div className="bg-slate-100 rounded-2xl border border-slate-200 p-4">
             <label className="block text-xs font-semibold text-slate-600 mb-1">Título Interno (opcional)</label>
-            <input type="text" value={internalTitle} onChange={e => setInternalTitle(e.target.value)} placeholder="Ej. Envío Mercadona semana 36" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <textarea ref={internalTitleRef} value={internalTitle} onChange={e => { setInternalTitle(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. Envío Mercadona semana 36" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
           </div>
 
           {/* BLOQUE A: Cargador Contractual */}
@@ -470,23 +522,23 @@ export default function EmitirDeca() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre / Denominación Social</label>
-                <input type="text" required value={shipperName} onChange={e => setShipperName(e.target.value)} placeholder="Ej. CITRICOS CUELLO SL" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={shipperNameRef} required value={shipperName} onChange={e => { setShipperName(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. CITRICOS CUELLO SL" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">NIF / CIF</label>
-                <input type="text" required value={shipperCif} onChange={e => setShipperCif(e.target.value)} placeholder="Ej. B-30411136" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={shipperCifRef} required value={shipperCif} onChange={e => { setShipperCif(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. B-30411136" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Dirección y Población</label>
-                <input type="text" required value={shipperAddress} onChange={e => setShipperAddress(e.target.value)} placeholder="Ej. C/ ORILLA DE AZARBE 243, 30139 EL RAAL (MURCIA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={shipperAddressRef} required value={shipperAddress} onChange={e => { setShipperAddress(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. C/ ORILLA DE AZARBE 243, 30139 EL RAAL (MURCIA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
-                <input type="tel" value={shipperPhone} onChange={e => setShipperPhone(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={shipperPhoneRef} inputMode="tel" value={shipperPhone} onChange={e => { setShipperPhone(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                <input type="email" value={shipperEmail} onChange={e => setShipperEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={shipperEmailRef} inputMode="email" value={shipperEmail} onChange={e => { setShipperEmail(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
             </div>
           </div>
@@ -530,31 +582,31 @@ export default function EmitirDeca() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa Transportista</label>
-                <input type="text" required value={carrierName} onChange={e => setCarrierName(e.target.value)} placeholder="Ej. PEPILLO A. MIGUEL, S.L." className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierNameRef} required value={carrierName} onChange={e => { setCarrierName(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. PEPILLO A. MIGUEL, S.L." className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">CIF Transportista</label>
-                <input type="text" required value={carrierCif} onChange={e => setCarrierCif(e.target.value)} placeholder="Ej. B-30463178" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierCifRef} required value={carrierCif} onChange={e => { setCarrierCif(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. B-30463178" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Domicilio Empresa</label>
-                <input type="text" required value={carrierAddress} onChange={e => setCarrierAddress(e.target.value)} placeholder="Ej. Ctra. Balsicas, 78, 30730 SAN JAVIER (Murcia)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierAddressRef} required value={carrierAddress} onChange={e => { setCarrierAddress(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. Ctra. Balsicas, 78, 30730 SAN JAVIER (Murcia)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Conductor</label>
-                <input type="text" required value={driverName} onChange={e => setDriverName(e.target.value)} placeholder="Ej. PASCUAL MARTINEZ" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={driverNameRef} required value={driverName} onChange={e => { setDriverName(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. PASCUAL MARTINEZ" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">DNI Conductor</label>
-                <input type="text" required value={driverDni} onChange={e => setDriverDni(e.target.value)} placeholder="Ej. 24060486-D" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={driverDniRef} required value={driverDni} onChange={e => { setDriverDni(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 24060486-D" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Email Conductor</label>
-                <input type="email" value={driverEmail} onChange={e => setDriverEmail(e.target.value)} placeholder="conductor@ejemplo.com" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={driverEmailRef} inputMode="email" value={driverEmail} onChange={e => { setDriverEmail(e.target.value); autoResize(e); }} rows={1} placeholder="conductor@ejemplo.com" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto</label>
-                <input type="tel" required value={carrierPhone} onChange={e => setCarrierPhone(e.target.value)} placeholder="Ej. 600123456" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={carrierPhoneRef} required inputMode="tel" value={carrierPhone} onChange={e => { setCarrierPhone(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 600123456" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
             </div>
 
@@ -589,15 +641,15 @@ export default function EmitirDeca() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Origen</label>
-                <input type="text" required value={origin} onChange={e => setOrigin(e.target.value)} placeholder="Ej. CTRA A-499 SIN, 21590 VILLABLANCA (HUELVA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={originRef} required value={origin} onChange={e => { setOrigin(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. CTRA A-499 SIN, 21590 VILLABLANCA (HUELVA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Destino</label>
-                <input type="text" required value={destination} onChange={e => setDestination(e.target.value)} placeholder="Ej. CLICOIN, 30-100 ESPINARDO (MURCIA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={destinationRef} required value={destination} onChange={e => { setDestination(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. CLICOIN, 30-100 ESPINARDO (MURCIA)" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Paradas Intermedias (opcional, una por línea)</label>
-                <textarea value={stopsText} onChange={e => setStopsText(e.target.value)} rows={2} placeholder={"Ej.\nÁrea de servicio Despeñaperros\nAlmacén de tránsito Bailén"} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 placeholder:text-slate-400" />
+                <textarea ref={stopsTextRef} value={stopsText} onChange={e => { setStopsText(e.target.value); autoResize(e); }} rows={2} placeholder={"Ej.\nÁrea de servicio Despeñaperros\nAlmacén de tránsito Bailén"} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 placeholder:text-slate-400 resize-none overflow-hidden" />
               </div>
             </div>
           </div>
@@ -608,15 +660,15 @@ export default function EmitirDeca() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-3">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción de la Mercancía</label>
-                <input type="text" required value={goodsDesc} onChange={e => setGoodsDesc(e.target.value)} placeholder="Ej. NARANJA A GRANEL" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={goodsDescRef} required value={goodsDesc} onChange={e => { setGoodsDesc(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. NARANJA A GRANEL" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Magnitud / Bultos</label>
-                <input type="text" required value={packageCount} onChange={e => setPackageCount(e.target.value)} placeholder="Ej. 24" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={packageCountRef} required value={packageCount} onChange={e => { setPackageCount(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 24 palets" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Peso Bruto (Kg)</label>
-                <input type="text" required value={grossWeight} onChange={e => setGrossWeight(e.target.value)} placeholder="Ej. 420" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={grossWeightRef} required value={grossWeight} onChange={e => { setGrossWeight(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 420" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
             </div>
           </div>
@@ -697,15 +749,15 @@ export default function EmitirDeca() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Tractor</label>
-                <input type="text" required value={tractorPlate} onChange={e => setTractorPlate(e.target.value)} placeholder="Ej. 9121-LNG" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={tractorPlateRef} required value={tractorPlate} onChange={e => { setTractorPlate(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 9121-LNG" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Remolque / Semirremolque</label>
-                <input type="text" value={trailerPlate} onChange={e => setTrailerPlate(e.target.value)} placeholder="Ej. R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={trailerPlateRef} value={trailerPlate} onChange={e => { setTrailerPlate(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. R-0803-BCN" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">2º Remolque (opcional, tren de carretera)</label>
-                <input type="text" value={trailerPlate2} onChange={e => setTrailerPlate2(e.target.value)} placeholder="Ej. R-1234-XYZ" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <textarea ref={trailerPlate2Ref} value={trailerPlate2} onChange={e => { setTrailerPlate2(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. R-1234-XYZ" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
             </div>
 
@@ -729,7 +781,7 @@ export default function EmitirDeca() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">G. Observaciones / Reservas</h3>
             <div>
-              <textarea value={observations} onChange={e => setObservations(e.target.value)} placeholder="Indique cualquier observación o reserva útil..." rows={3} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <textarea ref={observationsRef} value={observations} onChange={e => { setObservations(e.target.value); autoResize(e); }} placeholder="Indique cualquier observación o reserva útil..." rows={3} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
           </div>
 
