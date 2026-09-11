@@ -67,11 +67,12 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...GRAY_MUTED);
   doc.setFontSize(7);
-  doc.text('Documento nativo digital válido sin firma manuscrita (Orden FOM/2861/2012).', titleX, 34.5);
+  doc.text('Documento nativo digital válido sin firma manuscrita (Orden FOM/2861/2012).', titleX, 30.5);
 
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...ORANGE);
-  doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 30.5);
+  doc.setFontSize(8.5);
+  doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 35.5);
 
   
 
@@ -94,7 +95,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setTextColor(...GRAY_DARK);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`Rázon Social: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, margin, y);
+  doc.text(`Razón Social: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, margin, y);
   y += 4.5;
   /*doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
   y += 4.5;*/
@@ -124,7 +125,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setTextColor(...GRAY_DARK);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`Rázon Social: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
+  doc.text(`Razón Social: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
   y += 4.5;
   doc.text(`Domicilio: ${deca.carrier.address}`, margin, y);
   y += 4.5;
