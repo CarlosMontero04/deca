@@ -19,6 +19,17 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   });
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  // Metadatos del propio archivo PDF — más allá de lo que se ve impreso.
+  // La fecha/hora de creación las registra jsPDF automáticamente al generar
+  // el archivo (es un campo estándar de cualquier PDF), así que no hace
+  // falta forzarla a mano; lo que sí merece la pena fijar explícitamente
+  // es cómo se identifica el documento.
+  doc.setProperties({
+    title: `DeCA ${deca.id} - v${deca.version}.0`,
+    subject: 'Documento Electrónico de Control Administrativo (Orden FOM/2861/2012)',
+    author: 'OPERPAL - Operador Logístico de Palma del Río, S.L.',
+    creator: 'DeCA Digital - OPERPAL',
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 12;
@@ -110,20 +121,27 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.rect(0, y, pageWidth, 1.4, 'F');
   y += 8;
 
+  // Escribe una línea de datos calculando la altura REAL que ocupa.
+  // Los campos del formulario son cajas de texto libre, así que un valor
+  // puede venir muy largo (se parte en varias líneas) o traer saltos de
+  // línea escritos a mano. Si no se tiene eso en cuenta, lo siguiente que
+  // se dibuje se pinta encima y el texto se solapa.
+  const drawLine = (text: string, yPos: number, lineH = 4.5) => {
+    const lines = doc.splitTextToSize(text, pageWidth - margin * 2);
+    const yy = ensureSpace(yPos, lines.length * lineH);
+    doc.text(lines, margin, yy);
+    return yy + lines.length * lineH;
+  };
+
   // --- 1. CARGADOR CONTRACTUAL ---
   y = sectionHeader('1. CARGADOR CONTRACTUAL (EMPRESA CONTRATANTE)', y);
 
   doc.setTextColor(...GRAY_DARK);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`Razón Social: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, margin, y);
-  y += 4.5;
-  /*doc.text(`Contacto/Resp: ${deca.contractualShipper.contactName}`, margin, y);
-  y += 4.5;*/
-  doc.text(`Teléfono: ${deca.contractualShipper.phone || 'N/A'}  |  Email: ${deca.contractualShipper.email || 'N/A'}`, margin, y);
-  y += 4.5;
-  doc.text(`Domicilio: ${deca.contractualShipper.address}`, margin, y);
-  y += 4.5;
+  y = drawLine(`Razón Social: ${deca.contractualShipper.companyName}  |  NIF/CIF: ${deca.contractualShipper.cif}`, y);
+  y = drawLine(`Teléfono: ${deca.contractualShipper.phone || 'N/A'}  |  Email: ${deca.contractualShipper.email || 'N/A'}`, y);
+  y = drawLine(`Domicilio: ${deca.contractualShipper.address}`, y);
   // Origen/destino se leen siempre de shipments[0] — la misma fuente que usa la
   // tabla de la sección 3 — para que las dos secciones del PDF nunca puedan
   // mostrarse contradictorias entre sí, aunque algún día route y shipments
@@ -146,20 +164,14 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setTextColor(...GRAY_DARK);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`Razón Social: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, margin, y);
-  y += 4.5;
-  doc.text(`Domicilio: ${deca.carrier.address}`, margin, y);
-  y += 4.5;
-  doc.text(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})  |  Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
-  y += 4.5;
+  y = drawLine(`Razón Social: ${deca.carrier.companyName}  |  NIF/CIF: ${deca.carrier.cif}`, y);
+  y = drawLine(`Domicilio: ${deca.carrier.address}`, y);
+  y = drawLine(`Conductor: ${deca.carrier.driverName} (${deca.carrier.driverDni})  |  Teléfono: ${deca.carrier.phone || 'N/A'}`, y);
   const remolques = deca.carrier.trailerPlate2
     ? `Remolque 1: ${deca.carrier.trailerPlate || 'N/A'}  |  Remolque 2: ${deca.carrier.trailerPlate2}`
     : `Remolque: ${deca.carrier.trailerPlate || 'N/A'}`;
-  doc.text(`Tractora: ${deca.carrier.tractorPlate}  |  ${remolques}`, margin, y);
-  y += 9;
-  /*doc.text(`Teléfono: ${deca.carrier.phone || 'N/A'}`, margin, y);
-  y += 4.5;*/
-  
+  y = drawLine(`Tractora: ${deca.carrier.tractorPlate}  |  ${remolques}`, y);
+  y += 4.5;
 
   // --- 3. ORIGEN, DESTINO Y PARADAS ---
   y = sectionHeader('3. ORIGEN, DESTINO Y PARADAS', y);
@@ -233,6 +245,9 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   const cantidades: string[] = [];
   let totalPeso = 0;
   const rowHeight = 8;
+  // Las filas de esta tabla tienen altura fija, así que un salto de línea
+  // dentro de un valor desalinearía la tabla — aquí se aplanan a un espacio.
+  const unaLinea = (t: string) => (t || '').replace(/\s*\n+\s*/g, ' ').trim();
 
   deca.shipments.forEach((s, idx) => {
     cantidades.push(s.packageCount);
@@ -248,9 +263,9 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...GRAY_DARK);
-    doc.text(`${idx + 1}. ${s.trackingNumber}`, colRef, y + 5);
-    doc.text(truncateToWidth(s.goodsDescription, colBultos - colNaturaleza - 4), colNaturaleza, y + 5);
-    doc.text(truncateToWidth(s.packageCount, colPeso - colBultos - 16), colBultos, y + 5);
+    doc.text(`${idx + 1}. ${unaLinea(s.trackingNumber)}`, colRef, y + 5);
+    doc.text(truncateToWidth(unaLinea(s.goodsDescription), colBultos - colNaturaleza - 4), colNaturaleza, y + 5);
+    doc.text(truncateToWidth(unaLinea(s.packageCount), colPeso - colBultos - 16), colBultos, y + 5);
     doc.text(`${s.grossWeightKg} kg`, colPeso, y + 5, { align: 'right' });
 
     y += rowHeight;
@@ -304,8 +319,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
       }
       doc.setTextColor(...GRAY_MUTED);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Modificado por: ${h.modifiedBy}  |  Hash: ${h.qrHash}`, margin, y);
-      y += 5.5;
+      y = drawLine(`Modificado por: ${h.modifiedBy}  |  Hash: ${h.qrHash}`, y, 4.3);
+      y += 1.2;
     });
   } else {
     doc.setTextColor(...GRAY_DARK);
@@ -346,8 +361,7 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setFontSize(7);
   doc.text('1. Archivo legal obligatorio durante un mínimo de 1 año (Fecha límite legal de conservación: ' + fechaConservacion() + ').', margin, y);
   y += 3.5;
-  doc.text(`2. Sello de Integridad (Hash): ${deca.digitalSignature}`, margin, y);
-  y += 3.5;
+  y = drawLine(`2. Sello de Integridad (Hash): ${deca.digitalSignature}`, y, 3.5);
   doc.text('3. Validez técnica verificada mediante código Hash e interoperabilidad oficial según Orden FOM/2861/2012 y Real Decreto BOE.', margin, y);
   y += 6;
 
