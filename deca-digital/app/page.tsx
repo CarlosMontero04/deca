@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import { createClient } from './utils/supabase/client';
 import { LogOut, FileCheck, ClipboardList, Truck, ChevronRight, UserCircle } from 'lucide-react';
 
-const MODULOS = [
+// Definición completa de todos los módulos posibles.
+// El menú solo muestra los que tiene contratados la organización del usuario.
+const TODOS_LOS_MODULOS = [
   {
+    key: 'deca',
     href: '/deca',
     icon: FileCheck,
     titulo: 'DeCA Digital',
@@ -15,6 +18,7 @@ const MODULOS = [
     bg: 'bg-blue-50',
   },
   {
+    key: 'carga',
     href: '/carga',
     icon: ClipboardList,
     titulo: 'Órdenes de Carga',
@@ -23,6 +27,7 @@ const MODULOS = [
     bg: 'bg-emerald-50',
   },
   {
+    key: 'flota',
     href: '/flota',
     icon: Truck,
     titulo: 'Gestionar Flota',
@@ -38,12 +43,45 @@ export default function MenuPrincipal() {
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [modulos, setModulos] = useState(TODOS_LOS_MODULOS);
+  const [orgName, setOrgName] = useState('');
+  const [orgLogoUrl, setOrgLogoUrl] = useState('');
 
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
+
+      // Cargamos la organización del usuario para saber qué módulos mostrar
+      // y qué logo/nombre usar en la cabecera.
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .single();
+
+      if (membership?.org_id) {
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('name, modules')
+          .eq('id', membership.org_id)
+          .single();
+
+        if (org) {
+          setOrgName(org.name);
+          // Filtramos los módulos al orden y conjunto definido arriba
+          const activos = TODOS_LOS_MODULOS.filter(m => org.modules?.includes(m.key));
+          setModulos(activos.length > 0 ? activos : TODOS_LOS_MODULOS);
+        }
+
+        // Logo de la organización desde company_profile
+        const { data: profile } = await supabase
+          .from('company_profile')
+          .select('logo_url')
+          .single();
+        if (profile?.logo_url) setOrgLogoUrl(profile.logo_url);
+      }
+
       setLoading(false);
     };
     init();
@@ -64,13 +102,19 @@ export default function MenuPrincipal() {
 
   if (!user) return null;
 
+  // Mostramos el logo de la organización si lo tiene subido,
+  // y como respaldo el logo fijo de OPERPAL.
+  const logoIcon = orgLogoUrl || '/logo-operpal-icon.png';
+  const logoBig  = orgLogoUrl || '/logo-operpal.png';
+  const nombre   = orgName    || 'OPERPAL';
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
       <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-operpal-icon.png" alt="OPERPAL" className="w-9 h-9 object-contain" />
-          <h1 className="text-lg font-bold text-slate-800">OPERPAL</h1>
+          <img src={logoIcon} alt={nombre} className="w-9 h-9 object-contain" />
+          <h1 className="text-lg font-bold text-slate-800">{nombre}</h1>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-500 hidden sm:inline">{user.email}</span>
@@ -87,13 +131,13 @@ export default function MenuPrincipal() {
         <div className="max-w-4xl w-full">
           <div className="text-center mb-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-operpal.png" alt="OPERPAL" className="h-14 w-auto mx-auto mb-6" />
+            <img src={logoBig} alt={nombre} className="h-14 w-auto mx-auto mb-6 object-contain" />
             <h2 className="text-2xl font-bold text-slate-800">¿Qué quieres hacer?</h2>
             <p className="text-sm text-slate-500 mt-1">Elige un módulo para empezar</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {MODULOS.map((m) => (
+          <div className={`grid grid-cols-1 gap-5 ${modulos.length === 2 ? 'sm:grid-cols-2 max-w-2xl mx-auto' : 'sm:grid-cols-3'}`}>
+            {modulos.map((m) => (
               <button
                 key={m.href}
                 onClick={() => router.push(m.href)}
