@@ -92,7 +92,14 @@ export default function NuevaOrdenCarga() {
   };
 
   useEffect(() => {
-    loadFleet();
+    const checkAndLoad = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/login'); return; }
+      const { data: membership } = await supabase.from('organization_members').select('org_id').single();
+      if (!membership?.org_id) { router.push('/'); return; }
+      loadFleet();
+    };
+    checkAndLoad();
   }, []);
 
   const flashFleetMessage = (msg: string) => {

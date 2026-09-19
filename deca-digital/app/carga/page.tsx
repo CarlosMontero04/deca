@@ -53,10 +53,18 @@ export default function PanelOrdenesCarga() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
+
+      // Guardia de módulo: solo usuarios con organización pueden acceder.
+      // aaaa@gmail.com (o cualquier usuario sin org) queda fuera.
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .single();
+      if (!membership?.org_id) { router.push('/'); return; }
+
       const { data } = await supabase
         .from('ordenes_carga')
         .select('*')
-        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
       setOrdenes(data || []);
       setLoading(false);
