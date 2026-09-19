@@ -6,28 +6,50 @@ import { OrgBranding } from './pdfGenerator';
  * company_profile. Se usa antes de generar un PDF para que el documento
  * salga con la identidad del cliente, no con la de OPERPAL.
  *
- * Si la organización no tiene perfil aún (o no tiene logo subido),
- * devuelve null — en ese caso el generador usará los valores por defecto
- * de OPERPAL, lo cual es correcto para OPERPAL mismo y evita romper nada
- * durante la transición para clientes nuevos que todavía no han configurado
- * su perfil.
+ * El logo se guarda como URL pública en Storage. Lo descargamos aquí y lo
+ * convertimos a base64 para que jsPDF pueda incrustarlo en el PDF sin
+ * hacer peticiones externas desde el generador.
+ *
+ * Si la organización no tiene perfil o no tiene logo, devuelve undefined —
+ * el generador usará los valores por defecto de OPERPAL.
  */
 export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBranding | undefined> {
   const { data } = await supabase
     .from('company_profile')
-    .select('company_name, cif, address, phone, email, logo_base64, logo_width_px, logo_height_px')
+    .select('company_name, cif, address, phone, email, logo_url, logo_width_px, logo_height_px')
     .single();
 
   if (!data?.company_name) return undefined;
 
+  // Si tiene logo, lo descargamos y convertimos a base64
+  let logoBase64: string | undefined;
+  let logoWidthPx: number | undefined = data.logo_width_px ?? undefined;
+  let logoHeightPx: number | undefined = data.logo_height_px ?? undefined;
+
+  if (data.logo_url) {
+    try {
+      const res = await fetch(data.logo_url);
+      if (res.ok) {
+        const arrayBuffer = await res.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        bytes.forEach(b => { binary += String.fromCharCode(b); });
+        logoBase64 = btoa(binary);
+      }
+    } catch {
+      // Si falla la descarga del logo, seguimos sin él
+      logoBase64 = undefined;
+    }
+  }
+
   return {
-    companyName: data.company_name,
-    cif:         data.cif        ?? undefined,
-    address:     data.address    ?? undefined,
-    phone:       data.phone      ?? undefined,
-    email:       data.email      ?? undefined,
-    logoBase64:  data.logo_base64   ?? undefined,
-    logoWidthPx: data.logo_width_px ?? undefined,
-    logoHeightPx: data.logo_height_px ?? undefined,
+    companyName:  data.company_name,
+    cif:          data.cif      ?? undefined,
+    address:      data.address  ?? undefined,
+    phone:        data.phone    ?? undefined,
+    email:        data.email    ?? undefined,
+    logoBase64,
+    logoWidthPx,
+    logoHeightPx,
   };
 }

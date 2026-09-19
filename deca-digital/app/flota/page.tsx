@@ -27,7 +27,8 @@ export default function FlotaPanel() {
   const [locations, setLocations] = useState<any[]>([]);
 
   // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
-  const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '', logo_base64: '', logo_width_px: 0, logo_height_px: 0 });
+  const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '', logo_url: '', logo_width_px: 0, logo_height_px: 0 });
+  const [logoUploading, setLogoUploading] = useState(false);
   // Formulario de Transportista
   const [carrierForm, setCarrierForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
   // Formulario de Conductor
@@ -82,7 +83,7 @@ export default function FlotaPanel() {
         address: e.data.address || '',
         phone: e.data.phone || '',
         email: e.data.email || '',
-        logo_base64: e.data.logo_base64 || '',
+        logo_url: e.data.logo_url || '',
         logo_width_px: e.data.logo_width_px || 0,
         logo_height_px: e.data.logo_height_px || 0,
       });
@@ -127,7 +128,7 @@ export default function FlotaPanel() {
       address: companyForm.address,
       phone: companyForm.phone,
       email: companyForm.email,
-      logo_base64: companyForm.logo_base64 || null,
+      logo_url: companyForm.logo_url || null,
       logo_width_px: companyForm.logo_width_px || null,
       logo_height_px: companyForm.logo_height_px || null,
       updated_at: new Date().toISOString()
@@ -350,41 +351,74 @@ export default function FlotaPanel() {
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-2">Logo de empresa (aparece en el PDF del DeCA)</label>
               <div className="flex items-start gap-4">
-                {companyForm.logo_base64 && (
-                  <img src={`data:image/png;base64,${companyForm.logo_base64}`} alt="Logo" className="h-14 w-auto object-contain border rounded-lg p-1 bg-white" />
+                {companyForm.logo_url && (
+                  <img src={companyForm.logo_url} alt="Logo" className="h-14 w-auto object-contain border rounded-lg p-1 bg-white" />
                 )}
                 <div className="space-y-2">
                   <input
                     type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={logoUploading}
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      if (file.size > 500 * 1024) { alert('El logo no debe superar 500 KB'); return; }
-                      const img = new Image();
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        const result = ev.target?.result as string;
-                        img.onload = () => {
-                          setCompanyForm(f => ({
-                            ...f,
-                            logo_base64: result.split(',')[1],
-                            logo_width_px: img.naturalWidth,
-                            logo_height_px: img.naturalHeight,
-                          }));
-                        };
-                        img.src = result;
-                      };
-                      reader.readAsDataURL(file);
+                      if (file.size > 1 * 1024 * 1024) { alert('El logo no debe superar 1 MB'); return; }
+
+                      setLogoUploading(true);
+                      try {
+                        // Obtenemos las dimensiones antes de subir
+                        const dimensions = await new Promise<{w:number,h:number}>((resolve) => {
+                          const img = new Image();
+                          img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+                          img.src = URL.createObjectURL(file);
+                        });
+
+                        // Subimos a Storage con un nombre fijo por organización
+                        // (upsert: true para reemplazar si ya había uno)
+                        const ext = file.name.split('.').pop();
+                        const path = `${userId}/logo.${ext}`;
+                        const { error: uploadError } = await supabase.storage
+                          .from('company-logos')
+                          .upload(path, file, { upsert: true, contentType: file.type });
+
+                        if (uploadError) throw uploadError;
+
+                        const { data: urlData } = supabase.storage
+                          .from('company-logos')
+                          .getPublicUrl(path);
+
+                        // Añadimos un parámetro de cachebust para que el navegador
+                        // no muestre el logo anterior al reemplazarlo
+                        const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+                        setCompanyForm(f => ({
+                          ...f,
+                          logo_url: publicUrl,
+                          logo_width_px: dimensions.w,
+                          logo_height_px: dimensions.h,
+                        }));
+                      } catch (err: any) {
+                        alert(`Error al subir el logo: ${err.message}`);
+                      } finally {
+                        setLogoUploading(false);
+                      }
                     }}
                     className="text-sm text-slate-600"
                   />
-                  {companyForm.logo_base64 && (
-                    <button type="button" onClick={() => setCompanyForm(f => ({ ...f, logo_base64: '', logo_width_px: 0, logo_height_px: 0 }))} className="text-xs text-rose-600 hover:text-rose-700 font-semibold">
+                  {logoUploading && <p className="text-xs text-blue-600 font-semibold">Subiendo logo...</p>}
+                  {companyForm.logo_url && !logoUploading && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await supabase.storage.from('company-logos').remove([`${userId}/logo.png`, `${userId}/logo.jpg`, `${userId}/logo.webp`]);
+                        setCompanyForm(f => ({ ...f, logo_url: '', logo_width_px: 0, logo_height_px: 0 }));
+                      }}
+                      className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
+                    >
                       Eliminar logo
                     </button>
                   )}
-                  <p className="text-xs text-slate-400">PNG, JPG o WEBP · máx. 500 KB · fondo transparente recomendado</p>
+                  <p className="text-xs text-slate-400">PNG, JPG o WEBP · máx. 1 MB · fondo transparente recomendado</p>
                 </div>
               </div>
             </div>
