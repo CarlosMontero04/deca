@@ -7,6 +7,7 @@ import { FileEdit, ArrowLeft, Save } from 'lucide-react';
 import { generateDecaPdf } from '@/app/utils/pdfGenerator';
 import { loadOrgBranding } from '@/app/utils/loadOrgBranding';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '@/app/utils/notifyDriver';
+import SearchableSelect from '@/app/components/SearchableSelect';
 
 export default function ModificarDeca() {
   const router = useRouter();
@@ -45,6 +46,12 @@ export default function ModificarDeca() {
   // Contacto del conductor: no se trackea en el historial, solo sirve para avisarle
   const [driverEmail, setDriverEmail] = useState('');
   const [notifyMethod, setNotifyMethod] = useState<NotificationMethod>('telefono');
+
+  // Flota guardada — para autorellenar con SearchableSelect
+  const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
+  const [savedDrivers, setSavedDrivers] = useState<any[]>([]);
+  const [savedTractors, setSavedTractors] = useState<any[]>([]);
+  const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
 
   // Hace que una caja de texto crezca sola según el contenido, en vez de
   // quedarse con una altura fija y barra de scroll — igual que en Órdenes de Carga.
@@ -135,8 +142,71 @@ export default function ModificarDeca() {
       }
       setLoading(false);
     };
+
+    const loadFleet = async () => {
+      const [c, d, t, tr] = await Promise.all([
+        supabase.from('carriers').select('*').order('company_name'),
+        supabase.from('drivers').select('*').order('name'),
+        supabase.from('tractors').select('*').order('tractor_plate'),
+        supabase.from('trailers').select('*').order('trailer_plate'),
+      ]);
+      setSavedCarriers(c.data || []);
+      setSavedDrivers(d.data || []);
+      setSavedTractors(t.data || []);
+      setSavedTrailers(tr.data || []);
+    };
+
     fetchDeca();
+    loadFleet();
   }, [id, supabase]);
+
+  // ─── Handlers de autorellenado desde flota ─────────────────────────────
+  const handleSelectCarrier = (carrierId: string) => {
+    const c = savedCarriers.find(c => c.id === carrierId);
+    if (c) {
+      setShipperName(c.company_name);
+      setShipperCif(c.cif);
+      setShipperAddress(c.address || '');
+      setShipperPhone(c.phone || '');
+    }
+  };
+
+  const handleSelectDriver = (driverId: string) => {
+    const d = savedDrivers.find(d => d.id === driverId);
+    if (d) {
+      setDriverName(d.name);
+      setDriverDni(d.dni || '');
+      setDriverEmail(d.email || '');
+      if (d.phone) setPhone(d.phone);
+    }
+  };
+
+  const handleSelectTractor = (tractorId: string) => {
+    const t = savedTractors.find(t => t.id === tractorId);
+    if (t) setTractorPlate(t.tractor_plate);
+  };
+
+  const handleSelectTrailer = (trailerId: string) => {
+    const t = savedTrailers.find(t => t.id === trailerId);
+    if (t) setTrailerPlate(t.trailer_plate);
+  };
+
+  const handleSelectTrailer2 = (trailerId: string) => {
+    const t = savedTrailers.find(t => t.id === trailerId);
+    if (t) setTrailerPlate2(t.trailer_plate);
+  };
+
+  // Opciones para los SearchableSelect
+  const carrierOptions = savedCarriers.map(c => ({ value: c.id, label: c.company_name }));
+  const driverOptions = savedDrivers.map(d => ({ value: d.id, label: d.name }));
+  const tractorOptions = savedTractors.map(t => ({
+    value: t.id,
+    label: t.internal_title ? `${t.tractor_plate} — ${t.internal_title}` : t.tractor_plate
+  }));
+  const trailerOptions = savedTrailers.map(t => ({
+    value: t.id,
+    label: t.internal_title ? `${t.trailer_plate} — ${t.internal_title}` : t.trailer_plate
+  }));
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,51 +502,122 @@ export default function ModificarDeca() {
             <textarea ref={internalTitleRef} value={internalTitle} onChange={e => { setInternalTitle(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. Envío Mercadona semana 36" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa Cargador Contractual</label>
-              <textarea ref={shipperNameRef} value={shipperName} onChange={e => { setShipperName(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+          {/* ── Cargador Contractual ── */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cargador Contractual</p>
+              {carrierOptions.length > 0 && (
+                <div className="w-56">
+                  <SearchableSelect
+                    options={carrierOptions}
+                    onChange={handleSelectCarrier}
+                    placeholder="Autorellenar desde flota"
+                  />
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">NIF/CIF Cargador Contractual</label>
-              <textarea ref={shipperCifRef} value={shipperCif} onChange={e => { setShipperCif(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa Cargador Contractual</label>
+                <textarea ref={shipperNameRef} value={shipperName} onChange={e => { setShipperName(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">NIF/CIF Cargador Contractual</label>
+                <textarea ref={shipperCifRef} value={shipperCif} onChange={e => { setShipperCif(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Domicilio Cargador Contractual</label>
+                <textarea ref={shipperAddressRef} value={shipperAddress} onChange={e => { setShipperAddress(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono Cargador Contractual</label>
+                <textarea ref={shipperPhoneRef} inputMode="tel" value={shipperPhone} onChange={e => { setShipperPhone(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Email Cargador Contractual</label>
+                <textarea ref={shipperEmailRef} inputMode="email" value={shipperEmail} onChange={e => { setShipperEmail(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Domicilio Cargador Contractual</label>
-              <textarea ref={shipperAddressRef} value={shipperAddress} onChange={e => { setShipperAddress(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+          </div>
+
+          {/* ── Conductor ── */}
+          <div className="space-y-3 border-t pt-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Conductor</p>
+              {driverOptions.length > 0 && (
+                <div className="w-56">
+                  <SearchableSelect
+                    options={driverOptions}
+                    onChange={handleSelectDriver}
+                    placeholder="Autorellenar desde flota"
+                  />
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono Cargador Contractual</label>
-              <textarea ref={shipperPhoneRef} inputMode="tel" value={shipperPhone} onChange={e => { setShipperPhone(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Conductor</label>
+                <textarea ref={driverNameRef} value={driverName} onChange={e => { setDriverName(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">DNI Conductor</label>
+                <textarea ref={driverDniRef} value={driverDni} onChange={e => { setDriverDni(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto</label>
+                <textarea ref={phoneRef} inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Email Cargador Contractual</label>
-              <textarea ref={shipperEmailRef} inputMode="email" value={shipperEmail} onChange={e => { setShipperEmail(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+          </div>
+
+          {/* ── Vehículos ── */}
+          <div className="space-y-3 border-t pt-5">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vehículos</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Tractora</label>
+                {tractorOptions.length > 0 && (
+                  <div className="mb-2">
+                    <SearchableSelect
+                      options={tractorOptions}
+                      onChange={handleSelectTractor}
+                      placeholder="Seleccionar de flota"
+                    />
+                  </div>
+                )}
+                <textarea ref={tractorPlateRef} value={tractorPlate} onChange={e => { setTractorPlate(e.target.value); autoResize(e); }} rows={1} placeholder="O escribe la matrícula" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Remolque</label>
+                {trailerOptions.length > 0 && (
+                  <div className="mb-2">
+                    <SearchableSelect
+                      options={trailerOptions}
+                      onChange={handleSelectTrailer}
+                      placeholder="Seleccionar de flota"
+                    />
+                  </div>
+                )}
+                <textarea ref={trailerPlateRef} value={trailerPlate} onChange={e => { setTrailerPlate(e.target.value); autoResize(e); }} rows={1} placeholder="O escribe la matrícula" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">2º Remolque (opcional)</label>
+                {trailerOptions.length > 0 && (
+                  <div className="mb-2">
+                    <SearchableSelect
+                      options={trailerOptions}
+                      onChange={handleSelectTrailer2}
+                      placeholder="Seleccionar de flota"
+                    />
+                  </div>
+                )}
+                <textarea ref={trailerPlate2Ref} value={trailerPlate2} onChange={e => { setTrailerPlate2(e.target.value); autoResize(e); }} rows={1} placeholder="O escribe la matrícula" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Tractora</label>
-              <textarea ref={tractorPlateRef} value={tractorPlate} onChange={e => { setTractorPlate(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula Remolque</label>
-              <textarea ref={trailerPlateRef} value={trailerPlate} onChange={e => { setTrailerPlate(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Matrícula 2º Remolque</label>
-              <textarea ref={trailerPlate2Ref} value={trailerPlate2} onChange={e => { setTrailerPlate2(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Conductor</label>
-              <textarea ref={driverNameRef} value={driverName} onChange={e => { setDriverName(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">DNI Conductor</label>
-              <textarea ref={driverDniRef} value={driverDni} onChange={e => { setDriverDni(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono de Contacto</label>
-              <textarea ref={phoneRef} inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
-            </div>
+          </div>
+
+          {/* ── Ruta y mercancía ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-5">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha de Realización del Transporte</label>
               <input type="date" value={transportDate} onChange={e => setTransportDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
@@ -512,6 +653,7 @@ export default function ModificarDeca() {
             </div>
           </div>
 
+          {/* ── Motivo de modificación ── */}
           <div className="border-t pt-6 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Motivo Oficial de la Modificación</label>
@@ -541,6 +683,7 @@ export default function ModificarDeca() {
             </div>
           </div>
 
+          {/* ── Notificación al conductor ── */}
           <div className="border-t pt-6 space-y-4">
             <h3 className="font-bold text-slate-800 text-sm">Notificar al conductor la versión actualizada</h3>
             <div className="flex gap-4">
