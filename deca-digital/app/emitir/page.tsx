@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, ArrowLeft, Save, Truck } from 'lucide-react';
+import { FileText, ArrowLeft, Save, Truck, Eye, CheckCircle } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '../utils/notifyDriver';
@@ -17,6 +17,18 @@ export default function EmitirDeca() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Previsualización antes de confirmar el envío.
+  // previewPending guarda el blob, la URL y el objeto DeCA generados pero
+  // todavía NO guardados — solo se persisten si el usuario confirma.
+  const [previewPending, setPreviewPending] = useState<{
+    blob: Blob;
+    blobUrl: string;
+    deca: DecaDocument;
+    verificationUrl: string;
+    sizeBytes: number;
+    pdfStoragePath: string;
+  } | null>(null);
 
   // Bloque A: Cargador Contractual
   const [shipperName, setShipperName] = useState('');
@@ -294,7 +306,6 @@ export default function EmitirDeca() {
       const decaId = generateDecaId();
       const now = new Date().toISOString();
 
-      // Necesitamos el usuario ANTES de generar el PDF para poder subirlo a su carpeta en Storage
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
       if (!userId) throw new Error('No hay sesión activa.');
@@ -363,52 +374,72 @@ export default function EmitirDeca() {
       const { blob, sizeBytes } = await generateDecaPdf(newDeca, verificationUrl);
       newDeca.fileSizeBytes = sizeBytes;
 
-      // La Resolución exige que el PDF no supere los 5 MB (Segundo.1)
       const MAX_PDF_BYTES = 5 * 1024 * 1024;
       if (sizeBytes > MAX_PDF_BYTES) {
-        throw new Error(`El PDF generado pesa ${(sizeBytes / 1024 / 1024).toFixed(2)} MB, por encima del límite legal de 5 MB. Reduce el número de envíos u observaciones e inténtalo de nuevo.`);
+        throw new Error(`El PDF generado pesa ${(sizeBytes / 1024 / 1024).toFixed(2)} MB, por encima del límite legal de 5 MB.`);
       }
 
-      // Subimos el fichero real al repositorio (Supabase Storage) — esto es lo que
-      // convierte el PDF en un documento almacenado de verdad, no regenerado al vuelo.
       const pdfStoragePath = `${userId}/${decaId}.pdf`;
+      // Mostramos el PDF al usuario antes de persistirlo —
+      // así puede revisarlo y volver a editar si algo no está bien.
+      const blobUrl = URL.createObjectURL(blob);
+      setPreviewPending({ blob, blobUrl, deca: newDeca, verificationUrl, sizeBytes, pdfStoragePath });
+      setLoading(false);
+
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  // Confirmación: el usuario ha revisado el PDF y da el OK.
+  // Solo ahora se sube el archivo y se inserta en la base de datos.
+  const handleConfirm = async () => {
+    if (!previewPending) return;
+    const { blob, blobUrl, deca, verificationUrl, pdfStoragePath } = previewPending;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) throw new Error('No hay sesión activa.');
+
       const { error: uploadError } = await supabase.storage
         .from('decas-pdf')
         .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
-
       if (uploadError) throw uploadError;
 
-      const { error: dbError } = await supabase.from('decas').insert([
-        {
-          id: newDeca.id,
-          version: newDeca.version,
-          status: newDeca.status,
-          carrier: newDeca.carrier,
-          contractual_shipper: newDeca.contractualShipper,
-          route: newDeca.route,
-          shipments: newDeca.shipments,
-          digital_signature: newDeca.digitalSignature,
-          file_size_bytes: newDeca.fileSizeBytes,
-          qr_url: newDeca.qrUrl,
-          pdf_storage_path: pdfStoragePath,
-          observations: newDeca.observations || null,
-          internal_title: newDeca.internalTitle || null,
-          stops: newDeca.stops || [],
-          legal_retention_expires_date: newDeca.legalRetentionExpiresDate,
-          user_id: userId
-        }
-      ]);
-
+      const { error: dbError } = await supabase.from('decas').insert([{
+        id: deca.id,
+        version: deca.version,
+        status: deca.status,
+        carrier: deca.carrier,
+        contractual_shipper: deca.contractualShipper,
+        route: deca.route,
+        shipments: deca.shipments,
+        digital_signature: deca.digitalSignature,
+        file_size_bytes: deca.fileSizeBytes,
+        qr_url: deca.qrUrl,
+        pdf_storage_path: pdfStoragePath,
+        observations: deca.observations || null,
+        internal_title: deca.internalTitle || null,
+        stops: deca.stops || [],
+        legal_retention_expires_date: deca.legalRetentionExpiresDate,
+        user_id: userId
+      }]);
       if (dbError) throw dbError;
 
-      // No notificamos aquí automáticamente: los navegadores bloquean en silencio
-      // los window.open()/mailto disparados después de un await (como este insert).
-      // Guardamos lo necesario y mostramos un botón explícito en pantalla.
+      // Liberamos el blob URL temporal antes de pasar a la pantalla siguiente
+      URL.revokeObjectURL(blobUrl);
+      setPreviewPending(null);
+
       setCreatedInfo({
-        id: newDeca.id,
+        id: deca.id,
         verificationUrl,
-        phone: newDeca.carrier.phone,
-        email: newDeca.carrier.driverEmail,
+        phone: deca.carrier.phone,
+        email: deca.carrier.driverEmail,
         method: notifyMethod
       });
       setLoading(false);
@@ -444,6 +475,57 @@ export default function EmitirDeca() {
         {error && (
           <div className="mb-6 bg-rose-50 text-rose-600 p-4 rounded-xl text-sm border border-rose-200">
             {error}
+          </div>
+        )}
+
+        {/* PASO 2 — PREVISUALIZACIÓN: el PDF se ha generado pero aún NO está guardado.
+             El usuario lo revisa aquí y decide si confirmar o volver a editar. */}
+        {previewPending && !createdInfo && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                <Eye className="w-5 h-5 text-blue-600" />
+                Revisión del DeCA
+              </h3>
+              <span className="text-xs text-slate-400 font-semibold">Nº {previewPending.deca.id}</span>
+            </div>
+            <p className="text-sm text-slate-500">
+              Revisa el documento antes de emitirlo. <strong>Aún no se ha guardado nada</strong> — si ves algún error, vuelve a editar sin perder nada de lo que has rellenado.
+            </p>
+
+            <iframe
+              src={previewPending.blobUrl}
+              className="w-full rounded-xl border border-slate-200"
+              style={{ height: '70vh' }}
+              title="Previsualización del DeCA"
+            />
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">{error}</div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  URL.revokeObjectURL(previewPending.blobUrl);
+                  setPreviewPending(null);
+                  setError(null);
+                }}
+                className="flex-1 border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Volver a editar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={loading}
+                className="flex-1 bg-[#2A1670] hover:bg-[#1e1050] text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <CheckCircle className="w-4 h-4" />
+                {loading ? 'Emitiendo...' : 'Confirmar y emitir DeCA'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -506,6 +588,8 @@ export default function EmitirDeca() {
             </button>
           </div>
         ) : (
+        <>
+        {!previewPending && (
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* Título interno: solo para tu gestión, no forma parte del documento legal */}
@@ -795,6 +879,8 @@ export default function EmitirDeca() {
             {loading ? 'Generando Documento...' : 'Emitir y Guardar DeCA Oficial'}
           </button>
         </form>
+        )}
+        </>
         )}
       </div>
     </div>

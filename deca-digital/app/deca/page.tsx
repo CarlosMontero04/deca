@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle, MessageCircle, Mail } from 'lucide-react';
 import { generateDecaPdf } from '../utils/pdfGenerator';
+import { notifyDriver } from '../utils/notifyDriver';
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
@@ -12,6 +13,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [notifyingId, setNotifyingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -48,6 +50,22 @@ export default function Dashboard() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  // Notificación rápida al conductor directamente desde el panel,
+  // igual que los botones que ya existen en el panel de Órdenes de Carga.
+  const handleQuickNotify = async (doc: any, method: 'telefono' | 'email') => {
+    const phone = doc.carrier?.phone;
+    const email = doc.carrier?.driverEmail;
+    const verificationUrl = doc.qr_url || `https://deca-ochre.vercel.app/verificar/${doc.id}`;
+    setNotifyingId(doc.id + method);
+    const result = await notifyDriver(
+      method, phone, email,
+      `Aquí tienes tu Documento de Control (DeCA) ${doc.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
+      verificationUrl
+    );
+    setNotifyingId(null);
+    if (!result.success) alert(result.error);
   };
 
   // Función para descargar el PDF de un documento existente (Obligación legal BOE)
@@ -342,6 +360,26 @@ export default function Dashboard() {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex justify-end gap-1.5">
+                          <button
+                            onClick={() => handleQuickNotify(doc, 'telefono')}
+                            disabled={!doc.carrier?.phone || notifyingId === doc.id + 'telefono'}
+                            title="Notificar por WhatsApp"
+                            className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
+                          >
+                            <MessageCircle className="w-4 h-4 shrink-0" />
+                            <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">WhatsApp</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleQuickNotify(doc, 'email')}
+                            disabled={!doc.carrier?.driverEmail || notifyingId === doc.id + 'email'}
+                            title="Notificar por Email"
+                            className="group flex items-center gap-1.5 h-8 w-8 hover:w-28 disabled:hover:w-8 overflow-hidden px-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
+                          >
+                            <Mail className="w-4 h-4 shrink-0" />
+                            <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Email</span>
+                          </button>
+
                           <button
                             onClick={() => router.push(`/modificar/${doc.id}`)}
                             title="Editar"
