@@ -65,6 +65,7 @@ export default function PanelOrdenesCarga() {
       const { data } = await supabase
         .from('ordenes_carga')
         .select('*')
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
       setOrdenes(data || []);
       setLoading(false);
