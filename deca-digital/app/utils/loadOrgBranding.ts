@@ -17,7 +17,8 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
   const { data } = await supabase
     .from('company_profile')
     .select('company_name, cif, address, phone, email, logo_url, logo_width_px, logo_height_px')
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (!data?.company_name) return undefined;
 
@@ -26,10 +27,20 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
   let logoWidthPx: number | undefined = data.logo_width_px ?? undefined;
   let logoHeightPx: number | undefined = data.logo_height_px ?? undefined;
 
+  let logoFormat: 'PNG' | 'JPEG' | undefined;
+
   if (data.logo_url) {
     try {
       const res = await fetch(data.logo_url);
       if (res.ok) {
+        // Detectar formato por Content-Type o por la URL
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('jpeg') || contentType.includes('jpg') ||
+            data.logo_url.toLowerCase().match(/\.(jpg|jpeg)/)) {
+          logoFormat = 'JPEG';
+        } else {
+          logoFormat = 'PNG';
+        }
         const arrayBuffer = await res.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
         let binary = '';
@@ -39,6 +50,7 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     } catch {
       // Si falla la descarga del logo, seguimos sin él
       logoBase64 = undefined;
+      logoFormat = undefined;
     }
   }
 
@@ -49,6 +61,7 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     phone:        data.phone    ?? undefined,
     email:        data.email    ?? undefined,
     logoBase64,
+    logoFormat,
     logoWidthPx,
     logoHeightPx,
   };

@@ -19,6 +19,7 @@ export interface OrgBranding {
   phone?: string;
   email?: string;
   logoBase64?: string;
+  logoFormat?: 'PNG' | 'JPEG';
   logoWidthPx?: number;
   logoHeightPx?: number;
 }
@@ -99,11 +100,12 @@ export async function generateDecaPdf(
   // --- CABECERA ---
   // Si hay branding de la organización lo usamos; si no, OPERPAL por defecto.
   const logoBase64  = branding?.logoBase64   ?? OPERPAL_LOGO_BASE64;
+  const logoFormat  = branding?.logoFormat   ?? 'PNG';
   const logoWpx     = branding?.logoWidthPx  ?? OPERPAL_LOGO_WIDTH_PX;
   const logoHpx     = branding?.logoHeightPx ?? OPERPAL_LOGO_HEIGHT_PX;
   const logoWidth   = 42;
   const logoHeight  = logoWidth * (logoHpx / logoWpx);
-  doc.addImage(logoBase64, 'PNG', margin, 8, logoWidth, logoHeight);
+  doc.addImage(logoBase64, logoFormat, margin, 8, logoWidth, logoHeight);
 
   const titleX = margin + logoWidth + 6;
   doc.setTextColor(...NAVY);
