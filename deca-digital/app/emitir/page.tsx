@@ -8,6 +8,7 @@ import { generateDecaPdf } from '../utils/pdfGenerator';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '../utils/notifyDriver';
 import { generateDecaId } from '../utils/generateDecaId';
 import { DecaDocument } from '../types';
+import SearchableSelect from '../components/SearchableSelect';
 
 // Dominio canónico único de la app — usado en el QR y en la URL de verificación
 // para que ambos coincidan siempre (antes había dos dominios distintos mezclados).
@@ -639,26 +640,28 @@ export default function EmitirDeca() {
                 {savedCarriers.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde transportista guardado</label>
-                    <select value={selectedCarrierId} onChange={e => handleSelectCarrier(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Escribir a mano --</option>
-                      {savedCarriers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                    </select>
+                    <SearchableSelect
+                      value={selectedCarrierId}
+                      onChange={handleSelectCarrier}
+                      options={savedCarriers.map(c => ({ value: c.id, label: c.company_name }))}
+                      placeholder="-- Escribir a mano --"
+                    />
                   </div>
                 )}
                 {savedDrivers.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde conductor guardado</label>
-                    <select defaultValue="" onChange={e => handleSelectDriver(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Escribir a mano --</option>
-                      {selectedCarrierId && savedDrivers.some(d => d.carrier_id === selectedCarrierId) && (
-                        <optgroup label="Vinculados a este transportista">
-                          {savedDrivers.filter(d => d.carrier_id === selectedCarrierId).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        </optgroup>
-                      )}
-                      <optgroup label="Todos los conductores">
-                        {savedDrivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </optgroup>
-                    </select>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectDriver}
+                      options={[
+                        ...(selectedCarrierId && savedDrivers.some(d => d.carrier_id === selectedCarrierId)
+                          ? savedDrivers.filter(d => d.carrier_id === selectedCarrierId).map(d => ({ value: d.id, label: `★ ${d.name}` }))
+                          : []),
+                        ...savedDrivers.map(d => ({ value: d.id, label: d.name }))
+                      ].filter((opt, idx, arr) => arr.findIndex(o => o.value === opt.value) === idx)}
+                      placeholder="-- Escribir a mano --"
+                    />
                   </div>
                 )}
               </div>
@@ -783,49 +786,49 @@ export default function EmitirDeca() {
                 {savedTractors.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde tractora guardada</label>
-                    <select defaultValue="" onChange={e => handleSelectTractor(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Escribir a mano --</option>
-                      {selectedCarrierId && savedTractors.some(t => t.carrier_id === selectedCarrierId) && (
-                        <optgroup label="Vinculadas a este transportista">
-                          {savedTractors.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.tractor_plate}</option>)}
-                        </optgroup>
-                      )}
-                      <optgroup label="Todas las tractoras">
-                        {savedTractors.map(t => <option key={t.id} value={t.id}>{t.tractor_plate}</option>)}
-                      </optgroup>
-                    </select>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectTractor}
+                      options={[
+                        ...(selectedCarrierId && savedTractors.some(t => t.carrier_id === selectedCarrierId)
+                          ? savedTractors.filter(t => t.carrier_id === selectedCarrierId).map(t => ({ value: t.id, label: t.internal_title ? `★ ${t.tractor_plate} — ${t.internal_title}` : `★ ${t.tractor_plate}` }))
+                          : []),
+                        ...savedTractors.map(t => ({ value: t.id, label: t.internal_title ? `${t.tractor_plate} — ${t.internal_title}` : t.tractor_plate }))
+                      ].filter((opt, idx, arr) => arr.findIndex(o => o.value === opt.value) === idx)}
+                      placeholder="-- Escribir a mano --"
+                    />
                   </div>
                 )}
                 {savedTrailers.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde remolque guardado</label>
-                    <select defaultValue="" onChange={e => handleSelectTrailer(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Escribir a mano --</option>
-                      {selectedCarrierId && savedTrailers.some(t => t.carrier_id === selectedCarrierId) && (
-                        <optgroup label="Vinculados a este transportista">
-                          {savedTrailers.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
-                        </optgroup>
-                      )}
-                      <optgroup label="Todos los remolques">
-                        {savedTrailers.map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
-                      </optgroup>
-                    </select>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectTrailer}
+                      options={[
+                        ...(selectedCarrierId && savedTrailers.some(t => t.carrier_id === selectedCarrierId)
+                          ? savedTrailers.filter(t => t.carrier_id === selectedCarrierId).map(t => ({ value: t.id, label: t.internal_title ? `★ ${t.trailer_plate} — ${t.internal_title}` : `★ ${t.trailer_plate}` }))
+                          : []),
+                        ...savedTrailers.map(t => ({ value: t.id, label: t.internal_title ? `${t.trailer_plate} — ${t.internal_title}` : t.trailer_plate }))
+                      ].filter((opt, idx, arr) => arr.findIndex(o => o.value === opt.value) === idx)}
+                      placeholder="-- Escribir a mano --"
+                    />
                   </div>
                 )}
                 {savedTrailers.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar 2º remolque desde guardado (opcional)</label>
-                    <select defaultValue="" onChange={e => handleSelectTrailer2(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- Escribir a mano --</option>
-                      {selectedCarrierId && savedTrailers.some(t => t.carrier_id === selectedCarrierId) && (
-                        <optgroup label="Vinculados a este transportista">
-                          {savedTrailers.filter(t => t.carrier_id === selectedCarrierId).map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
-                        </optgroup>
-                      )}
-                      <optgroup label="Todos los remolques">
-                        {savedTrailers.map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
-                      </optgroup>
-                    </select>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectTrailer2}
+                      options={[
+                        ...(selectedCarrierId && savedTrailers.some(t => t.carrier_id === selectedCarrierId)
+                          ? savedTrailers.filter(t => t.carrier_id === selectedCarrierId).map(t => ({ value: t.id, label: t.internal_title ? `★ ${t.trailer_plate} — ${t.internal_title}` : `★ ${t.trailer_plate}` }))
+                          : []),
+                        ...savedTrailers.map(t => ({ value: t.id, label: t.internal_title ? `${t.trailer_plate} — ${t.internal_title}` : t.trailer_plate }))
+                      ].filter((opt, idx, arr) => arr.findIndex(o => o.value === opt.value) === idx)}
+                      placeholder="-- Escribir a mano --"
+                    />
                   </div>
                 )}
               </div>

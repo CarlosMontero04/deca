@@ -6,6 +6,7 @@ import { createClient } from '../../../utils/supabase/client';
 import { generateOrdenCargaPdf } from '../../../utils/pdfGeneratorOrdenCarga';
 import { notifyCarrierOrden } from '../../../utils/notifyCarrierOrden';
 import { ArrowLeft, FileEdit, Save } from 'lucide-react';
+import SearchableSelect from '../../../components/SearchableSelect';
 
 export default function ModificarOrdenCarga() {
   const router = useRouter();
@@ -317,10 +318,12 @@ export default function ModificarOrdenCarga() {
             {savedCarriers.length > 0 && (
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
                 <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar desde transportista guardado</label>
-                <select defaultValue="" onChange={e => handleSelectCarrier(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                  <option value="">-- No cambiar --</option>
-                  {savedCarriers.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
-                </select>
+                <SearchableSelect
+                  value=""
+                  onChange={handleSelectCarrier}
+                  options={savedCarriers.map(c => ({ value: c.id, label: c.company_name }))}
+                  placeholder="-- No cambiar --"
+                />
               </div>
             )}
 
@@ -344,19 +347,23 @@ export default function ModificarOrdenCarga() {
                 {savedTractors.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Tractora guardada</label>
-                    <select defaultValue="" onChange={e => handleSelectTractor(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- No cambiar --</option>
-                      {savedTractors.map(t => <option key={t.id} value={t.id}>{t.tractor_plate}</option>)}
-                    </select>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectTractor}
+                      options={savedTractors.map(t => ({ value: t.id, label: t.internal_title ? `${t.tractor_plate} — ${t.internal_title}` : t.tractor_plate }))}
+                      placeholder="-- No cambiar --"
+                    />
                   </div>
                 )}
                 {savedTrailers.length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-blue-800 mb-1">Remolque guardado</label>
-                    <select defaultValue="" onChange={e => handleSelectTrailer(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                      <option value="">-- No cambiar --</option>
-                      {savedTrailers.map(t => <option key={t.id} value={t.id}>{t.trailer_plate}</option>)}
-                    </select>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectTrailer}
+                      options={savedTrailers.map(t => ({ value: t.id, label: t.internal_title ? `${t.trailer_plate} — ${t.internal_title}` : t.trailer_plate }))}
+                      placeholder="-- No cambiar --"
+                    />
                   </div>
                 )}
               </div>
@@ -375,17 +382,21 @@ export default function ModificarOrdenCarga() {
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar origen desde ubicación guardada</label>
-                  <select defaultValue="" onChange={e => handleSelectOrigenLocation(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                    <option value="">-- No cambiar --</option>
-                    {savedLocations.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
-                  </select>
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectOrigenLocation}
+                    options={savedLocations.map(l => ({ value: l.id, label: l.title }))}
+                    placeholder="-- No cambiar --"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar destino desde ubicación guardada</label>
-                  <select defaultValue="" onChange={e => handleSelectDestinoLocation(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-                    <option value="">-- No cambiar --</option>
-                    {savedLocations.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
-                  </select>
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectDestinoLocation}
+                    options={savedLocations.map(l => ({ value: l.id, label: l.title }))}
+                    placeholder="-- No cambiar --"
+                  />
                 </div>
               </div>
             )}
