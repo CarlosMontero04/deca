@@ -7,6 +7,7 @@ import { generateOrdenCargaPdf } from '../../../utils/pdfGeneratorOrdenCarga';
 import { notifyCarrierOrden } from '../../../utils/notifyCarrierOrden';
 import { ArrowLeft, FileEdit, Save } from 'lucide-react';
 import SearchableSelect from '../../../components/SearchableSelect';
+import { getOrgId } from '../../../utils/getOrgId';
 
 export default function ModificarOrdenCarga() {
   const router = useRouter();
@@ -174,7 +175,8 @@ export default function ModificarOrdenCarga() {
     if (!titulo) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    await supabase.from('locations').insert([{ title: titulo, address, user_id: session.user.id }]);
+    const orgId = await getOrgId(supabase);
+    await supabase.from('locations').insert([{ title: titulo, address, user_id: session.user.id, org_id: orgId }]);
     await refreshFleetOnly();
     flashFleetMessage('✓ Ubicación guardada');
   };

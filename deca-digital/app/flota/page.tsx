@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
+import { getOrgId } from '../utils/getOrgId';
 
 type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones';
 
@@ -114,8 +115,10 @@ export default function FlotaPanel() {
   const saveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
+    const orgId = await getOrgId(supabase);
     await supabase.from('company_profile').upsert({
       user_id: userId,
+      org_id: orgId,
       company_name: companyForm.company_name,
       cif: companyForm.cif,
       address: companyForm.address,
@@ -131,7 +134,8 @@ export default function FlotaPanel() {
   const saveCarrier = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
-    const payload = { company_name: carrierForm.company_name, cif: carrierForm.cif, address: carrierForm.address, phone: carrierForm.phone, email: carrierForm.email, user_id: userId };
+    const orgId = await getOrgId(supabase);
+    const payload = { company_name: carrierForm.company_name, cif: carrierForm.cif, address: carrierForm.address, phone: carrierForm.phone, email: carrierForm.email, user_id: userId, org_id: orgId };
     if (carrierForm.id) {
       await supabase.from('carriers').update(payload).eq('id', carrierForm.id);
     } else {
@@ -153,9 +157,10 @@ export default function FlotaPanel() {
   const saveDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
+    const orgId = await getOrgId(supabase);
     const payload = {
       name: driverForm.name, dni: driverForm.dni, email: driverForm.email || null,
-      phone: driverForm.phone, carrier_id: driverForm.carrier_id || null, user_id: userId
+      phone: driverForm.phone, carrier_id: driverForm.carrier_id || null, user_id: userId, org_id: orgId
     };
     if (driverForm.id) {
       await supabase.from('drivers').update(payload).eq('id', driverForm.id);
@@ -178,10 +183,11 @@ export default function FlotaPanel() {
   const saveTractor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
+    const orgId = await getOrgId(supabase);
     const payload = {
       tractor_plate: tractorForm.tractor_plate,
       internal_title: tractorForm.internal_title || null,
-      carrier_id: tractorForm.carrier_id || null, user_id: userId
+      carrier_id: tractorForm.carrier_id || null, user_id: userId, org_id: orgId
     };
     if (tractorForm.id) {
       await supabase.from('tractors').update(payload).eq('id', tractorForm.id);
@@ -204,10 +210,11 @@ export default function FlotaPanel() {
   const saveTrailer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
+    const orgId = await getOrgId(supabase);
     const payload = {
       trailer_plate: trailerForm.trailer_plate,
       internal_title: trailerForm.internal_title || null,
-      carrier_id: trailerForm.carrier_id || null, user_id: userId
+      carrier_id: trailerForm.carrier_id || null, user_id: userId, org_id: orgId
     };
     if (trailerForm.id) {
       await supabase.from('trailers').update(payload).eq('id', trailerForm.id);
@@ -230,7 +237,8 @@ export default function FlotaPanel() {
   const saveLocation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
-    const payload = { title: locationForm.title, address: locationForm.address, user_id: userId };
+    const orgId = await getOrgId(supabase);
+    const payload = { title: locationForm.title, address: locationForm.address, user_id: userId, org_id: orgId };
     if (locationForm.id) {
       await supabase.from('locations').update(payload).eq('id', locationForm.id);
     } else {

@@ -9,6 +9,7 @@ import { notifyDriver, NotificationMethod, buildEmailFallback } from '../utils/n
 import { generateDecaId } from '../utils/generateDecaId';
 import { DecaDocument } from '../types';
 import SearchableSelect from '../components/SearchableSelect';
+import { getOrgId } from '../utils/getOrgId';
 
 // Dominio canónico único de la app — usado en el QR y en la URL de verificación
 // para que ambos coincidan siempre (antes había dos dominios distintos mezclados).
@@ -243,8 +244,10 @@ export default function EmitirDeca() {
     if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const orgId = await getOrgId(supabase);
     await supabase.from('carriers').insert([{
-      company_name: carrierName, cif: carrierCif, address: carrierAddress, phone: carrierPhone, user_id: session.user.id
+      company_name: carrierName, cif: carrierCif, address: carrierAddress, phone: carrierPhone,
+      user_id: session.user.id, org_id: orgId
     }]);
     await refreshFleet();
     flashFleetMessage('✓ Transportista guardado');
@@ -256,9 +259,10 @@ export default function EmitirDeca() {
     if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const orgId = await getOrgId(supabase);
     await supabase.from('drivers').insert([{
       name: driverName, dni: driverDni, email: driverEmail || null, phone: carrierPhone,
-      carrier_id: selectedCarrierId || null, user_id: session.user.id
+      carrier_id: selectedCarrierId || null, user_id: session.user.id, org_id: orgId
     }]);
     await refreshFleet();
     flashFleetMessage('✓ Conductor guardado');
@@ -270,9 +274,10 @@ export default function EmitirDeca() {
     if (yaExiste) { flashFleetMessage('Ya estaba guardada'); return; }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const orgId = await getOrgId(supabase);
     await supabase.from('tractors').insert([{
       tractor_plate: tractorPlate,
-      carrier_id: selectedCarrierId || null, user_id: session.user.id
+      carrier_id: selectedCarrierId || null, user_id: session.user.id, org_id: orgId
     }]);
     await refreshFleet();
     flashFleetMessage('✓ Tractora guardada');
@@ -284,9 +289,10 @@ export default function EmitirDeca() {
     if (yaExiste) { flashFleetMessage('Ya estaba guardado'); return; }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const orgId = await getOrgId(supabase);
     await supabase.from('trailers').insert([{
       trailer_plate: plate,
-      carrier_id: selectedCarrierId || null, user_id: session.user.id
+      carrier_id: selectedCarrierId || null, user_id: session.user.id, org_id: orgId
     }]);
     await refreshFleet();
     flashFleetMessage('✓ Remolque guardado');
@@ -407,6 +413,8 @@ export default function EmitirDeca() {
       const userId = session?.user?.id;
       if (!userId) throw new Error('No hay sesión activa.');
 
+      const orgId = await getOrgId(supabase);
+
       const { error: uploadError } = await supabase.storage
         .from('decas-pdf')
         .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
@@ -428,7 +436,8 @@ export default function EmitirDeca() {
         internal_title: deca.internalTitle || null,
         stops: deca.stops || [],
         legal_retention_expires_date: deca.legalRetentionExpiresDate,
-        user_id: userId
+        user_id: userId,
+        org_id: orgId
       }]);
       if (dbError) throw dbError;
 

@@ -7,6 +7,7 @@ import { generateOrdenCargaPdf } from '../../utils/pdfGeneratorOrdenCarga';
 import { generateSecureId } from '../../utils/generateDecaId';
 import { notifyCarrierOrden } from '../../utils/notifyCarrierOrden';
 import SearchableSelect from '../../components/SearchableSelect';
+import { getOrgId } from '../../utils/getOrgId';
 import { ArrowLeft, FileText, Save } from 'lucide-react';
 
 export default function NuevaOrdenCarga() {
@@ -117,7 +118,8 @@ export default function NuevaOrdenCarga() {
     if (!titulo) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    await supabase.from('locations').insert([{ title: titulo, address, user_id: session.user.id }]);
+    const orgId = await getOrgId(supabase);
+    await supabase.from('locations').insert([{ title: titulo, address, user_id: session.user.id, org_id: orgId }]);
     await loadFleet();
     flashFleetMessage('✓ Ubicación guardada');
   };
@@ -162,6 +164,8 @@ export default function NuevaOrdenCarga() {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id;
       if (!userId) throw new Error('No hay sesión activa.');
+
+      const orgId = await getOrgId(supabase);
 
       const orden = {
         id: ordenId,
@@ -210,6 +214,7 @@ export default function NuevaOrdenCarga() {
         pdf_storage_path: pdfStoragePath,
         file_size_bytes: sizeBytes,
         user_id: userId,
+        org_id: orgId,
       }]);
       if (dbError) throw dbError;
 
