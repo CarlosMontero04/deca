@@ -27,7 +27,7 @@ export default function FlotaPanel() {
   const [locations, setLocations] = useState<any[]>([]);
 
   // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
-  const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '' });
+  const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '', logo_base64: '', logo_width_px: 0, logo_height_px: 0 });
   // Formulario de Transportista
   const [carrierForm, setCarrierForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
   // Formulario de Conductor
@@ -81,7 +81,10 @@ export default function FlotaPanel() {
         cif: e.data.cif || '',
         address: e.data.address || '',
         phone: e.data.phone || '',
-        email: e.data.email || ''
+        email: e.data.email || '',
+        logo_base64: e.data.logo_base64 || '',
+        logo_width_px: e.data.logo_width_px || 0,
+        logo_height_px: e.data.logo_height_px || 0,
       });
     }
   };
@@ -124,6 +127,9 @@ export default function FlotaPanel() {
       address: companyForm.address,
       phone: companyForm.phone,
       email: companyForm.email,
+      logo_base64: companyForm.logo_base64 || null,
+      logo_width_px: companyForm.logo_width_px || null,
+      logo_height_px: companyForm.logo_height_px || null,
       updated_at: new Date().toISOString()
     });
     setCompanySaved(true);
@@ -330,8 +336,9 @@ export default function FlotaPanel() {
         {/* MI EMPRESA */}
         {tab === 'empresa' && (
           <form onSubmit={saveCompany} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> Datos de OPERPAL (Cargador Contractual)</h3>
-            <p className="text-xs text-slate-500">Estos datos se precargan automáticamente en el Bloque A al emitir un DeCA, ya que OPERPAL es siempre el Cargador Contractual.</p>
+            <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> Mi Empresa (Cargador Contractual)</h3>
+            <p className="text-xs text-slate-500">Estos datos se precargan automáticamente en el Bloque A al emitir un DeCA y aparecen en el pie del PDF.</p>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input required placeholder="Nombre / Denominación Social" value={companyForm.company_name} onChange={e => setCompanyForm({ ...companyForm, company_name: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
               <input required placeholder="NIF / CIF" value={companyForm.cif} onChange={e => setCompanyForm({ ...companyForm, cif: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
@@ -339,6 +346,49 @@ export default function FlotaPanel() {
               <input placeholder="Teléfono" value={companyForm.phone} onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
               <input type="email" placeholder="Email" value={companyForm.email} onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Logo de empresa (aparece en el PDF del DeCA)</label>
+              <div className="flex items-start gap-4">
+                {companyForm.logo_base64 && (
+                  <img src={`data:image/png;base64,${companyForm.logo_base64}`} alt="Logo" className="h-14 w-auto object-contain border rounded-lg p-1 bg-white" />
+                )}
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 500 * 1024) { alert('El logo no debe superar 500 KB'); return; }
+                      const img = new Image();
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const result = ev.target?.result as string;
+                        img.onload = () => {
+                          setCompanyForm(f => ({
+                            ...f,
+                            logo_base64: result.split(',')[1],
+                            logo_width_px: img.naturalWidth,
+                            logo_height_px: img.naturalHeight,
+                          }));
+                        };
+                        img.src = result;
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    className="text-sm text-slate-600"
+                  />
+                  {companyForm.logo_base64 && (
+                    <button type="button" onClick={() => setCompanyForm(f => ({ ...f, logo_base64: '', logo_width_px: 0, logo_height_px: 0 }))} className="text-xs text-rose-600 hover:text-rose-700 font-semibold">
+                      Eliminar logo
+                    </button>
+                  )}
+                  <p className="text-xs text-slate-400">PNG, JPG o WEBP · máx. 500 KB · fondo transparente recomendado</p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center gap-3">
               <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> Guardar Datos</button>
               {companySaved && <span className="text-sm text-emerald-600 font-semibold">✓ Guardado</span>}

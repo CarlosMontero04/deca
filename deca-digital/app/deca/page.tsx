@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle, MessageCircle, Mail } from 'lucide-react';
 import { generateDecaPdf } from '../utils/pdfGenerator';
+import { loadOrgBranding } from '../utils/loadOrgBranding';
 import { notifyDriver } from '../utils/notifyDriver';
 
 export default function Dashboard() {
@@ -119,7 +120,7 @@ export default function Dashboard() {
         stops: doc.stops || []
       };
 
-      const { blob } = await generateDecaPdf(decaData, verificationUrl);
+      const { blob } = await generateDecaPdf(decaData, verificationUrl, await loadOrgBranding(supabase));
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -169,7 +170,7 @@ export default function Dashboard() {
         observations: doc.observations || '',
         stops: doc.stops || []
       };
-      const { blob } = await generateDecaPdf(decaData, verificationUrl);
+      const { blob } = await generateDecaPdf(decaData, verificationUrl, await loadOrgBranding(supabase));
       const previewWindow = window.open(URL.createObjectURL(blob), '_blank');
       if (!previewWindow) {
         alert('El navegador ha bloqueado la ventana emergente. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.');

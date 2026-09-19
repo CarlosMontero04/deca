@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/app/utils/supabase/client';
 import { FileEdit, ArrowLeft, Save } from 'lucide-react';
 import { generateDecaPdf } from '@/app/utils/pdfGenerator';
+import { loadOrgBranding } from '@/app/utils/loadOrgBranding';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '@/app/utils/notifyDriver';
 
 export default function ModificarDeca() {
@@ -280,7 +281,7 @@ export default function ModificarDeca() {
       };
 
       // Regeneramos el PDF con todos los datos actualizados y el historial completo
-      const { blob, sizeBytes } = await generateDecaPdf(decaData, decaData.qrUrl);
+      const { blob, sizeBytes } = await generateDecaPdf(decaData, decaData.qrUrl, await loadOrgBranding(supabase));
 
       // La Resolución exige que el PDF no supere los 5 MB (Segundo.1)
       const MAX_PDF_BYTES = 5 * 1024 * 1024;

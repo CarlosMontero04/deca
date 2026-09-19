@@ -10,7 +10,24 @@ const GRAY_DARK: [number, number, number] = [45, 45, 45];
 const GRAY_MUTED: [number, number, number] = [120, 120, 120];
 const GRAY_BG: [number, number, number] = [246, 244, 251];
 
-export async function generateDecaPdf(deca: DecaDocument, verificationUrl: string) {
+/** Datos de marca de la organización emisora del DeCA.
+ *  Si no se pasan, el PDF usa los valores fijos de OPERPAL. */
+export interface OrgBranding {
+  companyName: string;
+  cif?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  logoBase64?: string;
+  logoWidthPx?: number;
+  logoHeightPx?: number;
+}
+
+export async function generateDecaPdf(
+  deca: DecaDocument,
+  verificationUrl: string,
+  branding?: OrgBranding
+) {
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
     errorCorrectionLevel: 'H',
     margin: 1,
@@ -27,8 +44,8 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setProperties({
     title: `DeCA ${deca.id} - v${deca.version}.0`,
     subject: 'Documento Electrónico de Control Administrativo (Orden FOM/2861/2012)',
-    author: 'OPERPAL - Operador Logístico de Palma del Río, S.L.',
-    creator: 'DeCA Digital - OPERPAL',
+    author: branding?.companyName ?? 'OPERPAL - Operador Logístico de Palma del Río, S.L.',
+    creator: 'DeCA Digital',
   });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -80,9 +97,13 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   };
 
   // --- CABECERA ---
-  const logoWidth = 42;
-  const logoHeight = logoWidth * (OPERPAL_LOGO_HEIGHT_PX / OPERPAL_LOGO_WIDTH_PX);
-  doc.addImage(OPERPAL_LOGO_BASE64, 'PNG', margin, 8, logoWidth, logoHeight);
+  // Si hay branding de la organización lo usamos; si no, OPERPAL por defecto.
+  const logoBase64  = branding?.logoBase64   ?? OPERPAL_LOGO_BASE64;
+  const logoWpx     = branding?.logoWidthPx  ?? OPERPAL_LOGO_WIDTH_PX;
+  const logoHpx     = branding?.logoHeightPx ?? OPERPAL_LOGO_HEIGHT_PX;
+  const logoWidth   = 42;
+  const logoHeight  = logoWidth * (logoHpx / logoWpx);
+  doc.addImage(logoBase64, 'PNG', margin, 8, logoWidth, logoHeight);
 
   const titleX = margin + logoWidth + 6;
   doc.setTextColor(...NAVY);
@@ -368,7 +389,10 @@ export async function generateDecaPdf(deca: DecaDocument, verificationUrl: strin
   doc.setTextColor(...ORANGE);
   doc.setFont('helvetica', 'bolditalic');
   doc.setFontSize(7.5);
-  doc.text('OPERPAL · Operador Logístico de Palma del Río, S.L.', margin, y);
+  const pieEmpresa = branding?.companyName
+    ? `${branding.companyName}${branding.cif ? ` · ${branding.cif}` : ''}`
+    : 'OPERPAL · Operador Logístico de Palma del Río, S.L.';
+  doc.text(pieEmpresa, margin, y);
 
   const blob = doc.output('blob');
   return { blob, sizeBytes: blob.size, qrDataUrl };

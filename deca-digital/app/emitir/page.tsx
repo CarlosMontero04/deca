@@ -10,6 +10,7 @@ import { generateDecaId } from '../utils/generateDecaId';
 import { DecaDocument } from '../types';
 import SearchableSelect from '../components/SearchableSelect';
 import { getOrgId } from '../utils/getOrgId';
+import { loadOrgBranding } from '../utils/loadOrgBranding';
 
 // Dominio canónico único de la app — usado en el QR y en la URL de verificación
 // para que ambos coincidan siempre (antes había dos dominios distintos mezclados).
@@ -378,7 +379,7 @@ export default function EmitirDeca() {
         qrUrl: verificationUrl
       };
 
-      const { blob, sizeBytes } = await generateDecaPdf(newDeca, verificationUrl);
+      const { blob, sizeBytes } = await generateDecaPdf(newDeca, verificationUrl, await loadOrgBranding(supabase));
       newDeca.fileSizeBytes = sizeBytes;
 
       const MAX_PDF_BYTES = 5 * 1024 * 1024;
