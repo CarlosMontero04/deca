@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { Building2, UserPlus, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Building2, UserPlus, ArrowLeft, CheckCircle, AlertCircle, Eye, EyeOff, RefreshCw, Users } from 'lucide-react';
 
 // Esta pantalla es solo para ti — no aparece en ningún menú y no se puede
 // acceder desde la app. La URL es /admin y necesita la contraseña de admin
@@ -16,8 +16,12 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Formulario
+  // Secreto (se reutiliza en ambas acciones)
   const [adminSecret, setAdminSecret] = useState('');
+
+  // ──────────────────────────────────────────────
+  // Sección 1: Nuevo cliente (org + primer usuario)
+  // ──────────────────────────────────────────────
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -25,21 +29,43 @@ export default function AdminPanel() {
   const [showPassword, setShowPassword] = useState(false);
   const [moduloCarga, setModuloCarga] = useState(false);
 
-  // Organizaciones existentes
+  // ──────────────────────────────────────────────
+  // Sección 2: Añadir usuario a org existente
+  // ──────────────────────────────────────────────
+  const [addUserOrgId, setAddUserOrgId] = useState('');
+  const [addUserEmail, setAddUserEmail] = useState('');
+  const [addUserPassword, setAddUserPassword] = useState('');
+  const [showAddUserPassword, setShowAddUserPassword] = useState(false);
+  const [addUserResult, setAddUserResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [addUserLoading, setAddUserLoading] = useState(false);
+
+  // ──────────────────────────────────────────────
+  // Organizaciones (cargadas vía API con service role)
+  // ──────────────────────────────────────────────
   const [orgs, setOrgs] = useState<any[]>([]);
+  const [orgsLoading, setOrgsLoading] = useState(false);
+
+  const fetchOrgs = useCallback(async (secret: string) => {
+    if (!secret) return;
+    setOrgsLoading(true);
+    try {
+      const res = await fetch('/api/admin/list-orgs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminSecret: secret }),
+      });
+      const data = await res.json();
+      if (res.ok) setOrgs(data.orgs ?? []);
+    } finally {
+      setOrgsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
       setUser(session.user);
-
-      // Cargamos las organizaciones para mostrar el estado actual
-      const { data } = await supabase
-        .from('organizations')
-        .select('id, name, slug, modules, created_at')
-        .order('created_at');
-      setOrgs(data || []);
     };
     init();
   }, []);
@@ -47,9 +73,20 @@ export default function AdminPanel() {
   // Auto-genera el slug desde el nombre
   const handleOrgNameChange = (v: string) => {
     setOrgName(v);
-    setOrgSlug(v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+    setOrgSlug(
+      v.toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+    );
   };
 
+  // Cuando cambia el secreto, cargamos las orgs automáticamente
+  const handleSecretBlur = () => {
+    if (adminSecret) fetchOrgs(adminSecret);
+  };
+
+  // ─── Crear nueva empresa ───────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -72,19 +109,49 @@ export default function AdminPanel() {
         setResult({ ok: false, msg: data.error });
       } else {
         setResult({ ok: true, msg: data.message });
-        // Resetear el formulario y actualizar la lista
+        // Resetear el formulario de nueva empresa
         setOrgName(''); setOrgSlug(''); setUserEmail(''); setUserPassword('');
         setModuloCarga(false);
-        const { data: newOrgs } = await supabase
-          .from('organizations')
-          .select('id, name, slug, modules, created_at')
-          .order('created_at');
-        setOrgs(newOrgs || []);
+        // Refrescar lista usando la API (service role, ve TODAS las orgs)
+        await fetchOrgs(adminSecret);
       }
     } catch (err: any) {
       setResult({ ok: false, msg: err.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ─── Añadir usuario a org existente ───────────
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddUserLoading(true);
+    setAddUserResult(null);
+
+    try {
+      const res = await fetch('/api/admin/add-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminSecret,
+          orgId: addUserOrgId,
+          userEmail: addUserEmail,
+          userPassword: addUserPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setAddUserResult({ ok: false, msg: data.error });
+      } else {
+        setAddUserResult({ ok: true, msg: data.message });
+        setAddUserOrgId(''); setAddUserEmail(''); setAddUserPassword('');
+      }
+    } catch (err: any) {
+      setAddUserResult({ ok: false, msg: err.message });
+    } finally {
+      setAddUserLoading(false);
     }
   };
 
@@ -104,7 +171,34 @@ export default function AdminPanel() {
           </h1>
         </div>
 
-        {/* Formulario de alta */}
+        {/* Contraseña de admin (compartida) */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Contraseña de administrador</label>
+          <div className="flex gap-2">
+            <input
+              type="password"
+              value={adminSecret}
+              onChange={e => setAdminSecret(e.target.value)}
+              onBlur={handleSecretBlur}
+              className="flex-1 px-3 py-2 border rounded-lg text-sm text-slate-900"
+              placeholder="La que tienes en ADMIN_SECRET en Vercel"
+            />
+            <button
+              type="button"
+              onClick={() => fetchOrgs(adminSecret)}
+              disabled={!adminSecret || orgsLoading}
+              title="Recargar organizaciones"
+              className="px-3 py-2 border rounded-lg text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <RefreshCw className={`w-4 h-4 ${orgsLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Al salir del campo se cargan las organizaciones automáticamente.
+          </p>
+        </div>
+
+        {/* ── Sección 1: Nuevo cliente ── */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
           <h2 className="font-bold text-slate-800 flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-blue-600" />
@@ -116,17 +210,7 @@ export default function AdminPanel() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Contraseña de administrador</label>
-              <input
-                required type="password" value={adminSecret}
-                onChange={e => setAdminSecret(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900"
-                placeholder="La que tienes en ADMIN_SECRET en Vercel"
-              />
-            </div>
-
-            <div className="border-t pt-4 space-y-4">
+            <div className="space-y-4">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Datos de la empresa</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -208,7 +292,7 @@ export default function AdminPanel() {
               </div>
             )}
 
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || !adminSecret}
               className="w-full bg-[#2A1670] hover:bg-[#1e1050] text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
               <UserPlus className="w-4 h-4" />
               {loading ? 'Creando...' : 'Crear empresa y usuario'}
@@ -216,12 +300,107 @@ export default function AdminPanel() {
           </form>
         </div>
 
-        {/* Lista de organizaciones existentes */}
-        {orgs.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b">
-              <h2 className="font-bold text-slate-800 text-sm">Organizaciones activas ({orgs.length})</h2>
+        {/* ── Sección 2: Añadir usuario a org existente ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <Users className="w-5 h-5 text-emerald-600" />
+            Añadir usuario a empresa existente
+          </h2>
+          <p className="text-xs text-slate-500">
+            Crea un segundo (o tercer…) empleado y asígnalo a una empresa que ya existe.
+          </p>
+
+          <form onSubmit={handleAddUser} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label>
+              {orgs.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">
+                  Introduce la contraseña de administrador arriba para cargar las empresas.
+                </p>
+              ) : (
+                <select
+                  required
+                  value={addUserOrgId}
+                  onChange={e => setAddUserOrgId(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
+                >
+                  <option value="">— Selecciona una empresa —</option>
+                  {orgs.map(org => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Email del nuevo usuario</label>
+              <input
+                required type="email" value={addUserEmail}
+                onChange={e => setAddUserEmail(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900"
+                placeholder="empleado2@empresa.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Contraseña inicial</label>
+              <div className="relative">
+                <input
+                  required type={showAddUserPassword ? 'text' : 'password'} value={addUserPassword}
+                  onChange={e => setAddUserPassword(e.target.value)}
+                  minLength={8}
+                  className="w-full px-3 py-2 pr-10 border rounded-lg text-sm text-slate-900"
+                  placeholder="Mínimo 8 caracteres"
+                />
+                <button type="button" onClick={() => setShowAddUserPassword(v => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                  {showAddUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {addUserResult && (
+              <div className={`flex items-start gap-2 p-3 rounded-xl text-sm border ${addUserResult.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
+                {addUserResult.ok
+                  ? <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                }
+                {addUserResult.msg}
+              </div>
+            )}
+
+            <button type="submit" disabled={addUserLoading || !adminSecret || !addUserOrgId}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50">
+              <Users className="w-4 h-4" />
+              {addUserLoading ? 'Añadiendo...' : 'Añadir usuario'}
+            </button>
+          </form>
+        </div>
+
+        {/* ── Lista de organizaciones activas ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h2 className="font-bold text-slate-800 text-sm">
+              Organizaciones activas {orgs.length > 0 && `(${orgs.length})`}
+            </h2>
+            <button
+              onClick={() => fetchOrgs(adminSecret)}
+              disabled={!adminSecret || orgsLoading}
+              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 disabled:opacity-40"
+            >
+              <RefreshCw className={`w-3 h-3 ${orgsLoading ? 'animate-spin' : ''}`} />
+              Recargar
+            </button>
+          </div>
+
+          {orgs.length === 0 ? (
+            <div className="p-6 text-center text-slate-400 text-sm">
+              {adminSecret
+                ? orgsLoading ? 'Cargando...' : 'No hay organizaciones todavía.'
+                : 'Introduce la contraseña de administrador para ver las organizaciones.'
+              }
+            </div>
+          ) : (
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
@@ -246,8 +425,8 @@ export default function AdminPanel() {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
+          )}
+        </div>
 
       </div>
     </div>
