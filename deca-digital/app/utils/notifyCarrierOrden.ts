@@ -21,7 +21,7 @@ export async function notifyCarrierOrden(
     if (!phone) return { success: false, error: 'No hay teléfono guardado en esta orden.' };
     const { data, error } = await supabase.storage
       .from('ordenes-carga-pdf')
-      .createSignedUrl(pdfStoragePath, 60 * 60 * 24 * 7); // 7 días
+      .createSignedUrl(pdfStoragePath, 60 * 60 * 24 * 30); // 30 días
     if (error || !data) return { success: false, error: 'No se pudo generar el enlace del PDF.' };
 
     const digits = phone.replace(/\D/g, '');
