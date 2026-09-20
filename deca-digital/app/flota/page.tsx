@@ -6,10 +6,12 @@ import { createClient } from '../utils/supabase/client';
 import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle, Upload, CheckCircle } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
 import { getOrgId } from '../utils/getOrgId';
+import { useOrgLogo } from '../hooks/useOrgLogo';
 
 type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones';
 
 export default function FlotaPanel() {
+  const { logoUrl: orgLogoUrl, orgName } = useOrgLogo();
   const router = useRouter();
   const supabase = createClient();
 
@@ -304,7 +306,7 @@ export default function FlotaPanel() {
       <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
         <button onClick={() => router.push('/')} className="flex items-center gap-2" title="Ir al menú principal">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-operpal-icon.png" alt="OPERPAL" className="w-9 h-9 object-contain" />
+          <img src={orgLogoUrl} alt={orgName} className="w-9 h-9 object-contain" />
           <h1 className="text-lg font-bold text-slate-800">Gestión de Flota</h1>
         </button>
         <div className="flex items-center gap-4">

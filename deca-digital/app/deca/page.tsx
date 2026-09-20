@@ -7,8 +7,10 @@ import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle
 import { generateDecaPdf } from '../utils/pdfGenerator';
 import { loadOrgBranding } from '../utils/loadOrgBranding';
 import { notifyDriver } from '../utils/notifyDriver';
+import { useOrgLogo } from '../hooks/useOrgLogo';
 
 export default function Dashboard() {
+  const { logoUrl: orgLogoUrl, orgName } = useOrgLogo();
   const [user, setUser] = useState<any>(null);
   const [decas, setDecas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -228,7 +230,7 @@ export default function Dashboard() {
       <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0">
         <button onClick={() => router.push('/')} className="flex items-center gap-2" title="Ir al menú principal">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-operpal-icon.png" alt="OPERPAL" className="w-9 h-9 object-contain" />
+          <img src={orgLogoUrl} alt={orgName} className="w-9 h-9 object-contain" />
           <h1 className="text-lg font-bold text-slate-800">DeCA Digital</h1>
         </button>
         
