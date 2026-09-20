@@ -22,6 +22,18 @@ export interface OrgBranding {
   logoFormat?: 'PNG' | 'JPEG';
   logoWidthPx?: number;
   logoHeightPx?: number;
+  primaryColor?: string;  // hex, ej. '#2A1670'
+  accentColor?: string;   // hex, ej. '#E98837'
+}
+
+/** Convierte un color hex (#RRGGBB) a tupla RGB para jsPDF. */
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
 }
 
 export async function generateDecaPdf(
@@ -29,11 +41,16 @@ export async function generateDecaPdf(
   verificationUrl: string,
   branding?: OrgBranding
 ) {
+  // Colores corporativos: los del branding si existen, si no los de OPERPAL
+  const PRIMARY   = branding?.primaryColor ? hexToRgb(branding.primaryColor) : ([42, 22, 112]   as [number, number, number]);
+  const ACCENT    = branding?.accentColor  ? hexToRgb(branding.accentColor)  : ([233, 136, 55]  as [number, number, number]);
+  const primaryHex = branding?.primaryColor ?? '#2A1670';
+
   const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
     errorCorrectionLevel: 'H',
     margin: 1,
     width: 300,
-    color: { dark: '#2A1670', light: '#FFFFFF' },
+    color: { dark: primaryHex, light: '#FFFFFF' },
   });
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -65,7 +82,7 @@ export async function generateDecaPdf(
 
   const sectionHeader = (text: string, y: number) => {
     y = ensureSpace(y, 16);
-    doc.setFillColor(...NAVY);
+    doc.setFillColor(...PRIMARY);
     doc.roundedRect(margin, y, pageWidth - margin * 2, 6, 1, 1, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
@@ -108,7 +125,7 @@ export async function generateDecaPdf(
   doc.addImage(logoBase64, logoFormat, margin, 8, logoWidth, logoHeight);
 
   const titleX = margin + logoWidth + 6;
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('DOCUMENTO ELECTRÓNICO DE CONTROL', titleX, 14);
@@ -125,7 +142,7 @@ export async function generateDecaPdf(
   doc.text('Documento nativo digital válido sin firma manuscrita (Orden FOM/2861/2012).', titleX, 30.5);
 
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...ORANGE);
+  doc.setTextColor(...ACCENT);
   doc.setFontSize(11);
   doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 36);
 
@@ -138,9 +155,9 @@ export async function generateDecaPdf(
   doc.setTextColor(...GRAY_MUTED);
   doc.text('Verificación', pageWidth - margin - qrSize / 2, 6 + qrSize + 3, { align: 'center' });
 
-  // Franja naranja divisoria
+  // Franja de color divisoria
   let y = Math.max(8 + logoHeight, 38) + 4;
-  doc.setFillColor(...ORANGE);
+  doc.setFillColor(...ACCENT);
   doc.rect(0, y, pageWidth, 1.4, 'F');
   y += 8;
 
@@ -229,11 +246,11 @@ export async function generateDecaPdf(
       doc.line(dotX, y + 1.5, dotX, y + rowH + 1.5);
     }
 
-    // Punto: más grande y en navy para origen/destino, más pequeño y naranja para paradas
-    doc.setFillColor(...(esExtremo ? NAVY : ORANGE));
+    // Punto: más grande y en primary para origen/destino, más pequeño y accent para paradas
+    doc.setFillColor(...(esExtremo ? PRIMARY : ACCENT));
     doc.circle(dotX, y + 1.5, esExtremo ? 1.7 : 1.2, 'F');
 
-    doc.setTextColor(...(esExtremo ? NAVY : ORANGE));
+    doc.setTextColor(...(esExtremo ? PRIMARY : ACCENT));
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.text(p.tipo, textX, y + 1);
@@ -252,7 +269,7 @@ export async function generateDecaPdf(
 
   doc.setFillColor(...GRAY_BG);
   doc.rect(margin, y, pageWidth - margin * 2, 6, 'F');
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   const colRef = margin + 2;
@@ -297,7 +314,7 @@ export async function generateDecaPdf(
   y += 2;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
 
   const cantidadLines = doc.splitTextToSize(`CANTIDAD: ${cantidades.join(', ')}`, pageWidth - margin * 2);
   doc.text(cantidadLines, margin, y);
@@ -325,12 +342,12 @@ export async function generateDecaPdf(
       const alturaEntrada = 4.3 + campoLines.length * 4.3 + detalleLines.length * 4.3 + 5.5;
       y = ensureSpace(y, alturaEntrada);
 
-      doc.setTextColor(...NAVY);
+      doc.setTextColor(...PRIMARY);
       doc.setFont('helvetica', 'bold');
       doc.text(`v${h.version}  ·  ${fechaLarga(h.timestamp)}  ·  ${h.reason}`, margin, y);
       y += 4.3;
       if (campoLines.length > 0) {
-        doc.setTextColor(...ORANGE);
+        doc.setTextColor(...ACCENT);
         doc.text(campoLines, margin, y);
         y += campoLines.length * 4.3;
       }
@@ -368,12 +385,12 @@ export async function generateDecaPdf(
   // --- PIE DE PÁGINA ---
   y = ensureSpace(y, 32);
   y += 1;
-  doc.setDrawColor(...NAVY);
+  doc.setDrawColor(...PRIMARY);
   doc.setLineWidth(0.4);
   doc.line(margin, y, pageWidth - margin, y);
   y += 5;
 
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.text('OBLIGACIÓN LEGAL DE CONSERVACIÓN Y METADATOS DE INTEGRIDAD', margin, y);
@@ -388,7 +405,7 @@ export async function generateDecaPdf(
   doc.text('3. Validez técnica verificada mediante código Hash e interoperabilidad oficial según Orden FOM/2861/2012 y Real Decreto BOE.', margin, y);
   y += 6;
 
-  doc.setTextColor(...ORANGE);
+  doc.setTextColor(...ACCENT);
   doc.setFont('helvetica', 'bolditalic');
   doc.setFontSize(7.5);
   const pieEmpresa = branding?.companyName

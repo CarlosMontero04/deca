@@ -16,7 +16,7 @@ import { OrgBranding } from './pdfGenerator';
 export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBranding | undefined> {
   const { data } = await supabase
     .from('company_profile')
-    .select('company_name, cif, address, phone, email, logo_url, logo_width_px, logo_height_px')
+    .select('company_name, cif, address, phone, email, logo_url, logo_width_px, logo_height_px, primary_color, accent_color')
     .limit(1)
     .maybeSingle();
 
@@ -55,14 +55,16 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
   }
 
   return {
-    companyName:  data.company_name,
-    cif:          data.cif      ?? undefined,
-    address:      data.address  ?? undefined,
-    phone:        data.phone    ?? undefined,
-    email:        data.email    ?? undefined,
+    companyName:   data.company_name,
+    cif:           data.cif           ?? undefined,
+    address:       data.address       ?? undefined,
+    phone:         data.phone         ?? undefined,
+    email:         data.email         ?? undefined,
     logoBase64,
     logoFormat,
     logoWidthPx,
     logoHeightPx,
+    primaryColor:  data.primary_color ?? undefined,
+    accentColor:   data.accent_color  ?? undefined,
   };
 }

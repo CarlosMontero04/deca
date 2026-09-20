@@ -35,6 +35,8 @@ export default function MiCuenta() {
   const [address, setAddress] = useState('');
   const [companyPhone, setCompanyPhone] = useState('');
   const [companyEmail, setCompanyEmail] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('#2A1670');
+  const [accentColor, setAccentColor] = useState('#E98837');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
@@ -53,7 +55,7 @@ export default function MiCuenta() {
       // Cargar perfil de empresa del usuario actual
       const { data: profile } = await supabase
         .from('company_profile')
-        .select('company_name, cif, address, phone, email, logo_url')
+        .select('company_name, cif, address, phone, email, logo_url, primary_color, accent_color')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
@@ -63,6 +65,8 @@ export default function MiCuenta() {
         setAddress(profile.address || '');
         setCompanyPhone(profile.phone || '');
         setCompanyEmail(profile.email || '');
+        setPrimaryColor(profile.primary_color || '#2A1670');
+        setAccentColor(profile.accent_color || '#E98837');
         setLogoUrl(profile.logo_url || null);
         setLogoPreview(profile.logo_url || null);
       }
@@ -222,6 +226,8 @@ export default function MiCuenta() {
         logo_url: logoUrl || null,
         logo_width_px: logoWidthPx,
         logo_height_px: logoHeightPx,
+        primary_color: primaryColor,
+        accent_color: accentColor,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' });
 
@@ -426,6 +432,60 @@ export default function MiCuenta() {
                 placeholder="Ej. info@transportes.com"
                 className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900"
               />
+            </div>
+          </div>
+
+          {/* Colores corporativos */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">Colores corporativos en el PDF</label>
+            <p className="text-xs text-slate-400 mb-3">
+              Se usan en las cabeceras de sección, la franja divisoria y el texto de fecha del DeCA.
+              Si los dejas en blanco se usarán los colores de OPERPAL por defecto.
+            </p>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={e => setPrimaryColor(e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                    title="Color principal"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">Color principal</p>
+                  <p className="text-xs text-slate-400">Cabeceras, títulos, pie de página</p>
+                  <code className="text-xs text-slate-500">{primaryColor}</code>
+                </div>
+                {primaryColor !== '#2A1670' && (
+                  <button type="button" onClick={() => setPrimaryColor('#2A1670')} className="text-xs text-slate-400 hover:text-slate-600 underline">Reset</button>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={accentColor}
+                    onChange={e => setAccentColor(e.target.value)}
+                    className="w-10 h-10 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                    title="Color de acento"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">Color de acento</p>
+                  <p className="text-xs text-slate-400">Franja divisoria, fecha, paradas</p>
+                  <code className="text-xs text-slate-500">{accentColor}</code>
+                </div>
+                {accentColor !== '#E98837' && (
+                  <button type="button" onClick={() => setAccentColor('#E98837')} className="text-xs text-slate-400 hover:text-slate-600 underline">Reset</button>
+                )}
+              </div>
+            </div>
+            {/* Preview mini de los colores */}
+            <div className="mt-3 rounded-lg overflow-hidden border border-slate-100 flex h-6">
+              <div className="flex-1" style={{ backgroundColor: primaryColor }} />
+              <div className="flex-1" style={{ backgroundColor: accentColor }} />
             </div>
           </div>
 
