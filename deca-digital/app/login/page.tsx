@@ -34,7 +34,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border border-slate-200">
         <div className="flex flex-col items-center justify-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-operpal.png" alt="DeCA Digital" className="h-16 w-auto mb-4" />
+          <img src="/logo-deca-digital.png" alt="DeCA Digital" className="h-16 w-auto mb-4" />
           <h1 className="text-2xl font-bold text-slate-800">DeCA Digital</h1>
           <p className="text-sm text-slate-500">Gestión de Documentos de Transporte</p>
         </div>
