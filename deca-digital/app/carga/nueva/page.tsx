@@ -191,7 +191,7 @@ export default function NuevaOrdenCarga() {
       const pdfStoragePath = `${userId}/${ordenId}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from('ordenes-carga-pdf')
-        .upload(pdfStoragePath, blob, { contentType: 'application/pdf', upsert: true, cacheControl: '0' });
+        .upload(pdfStoragePath, blob, { contentType: 'application/pdf', cacheControl: '0' });
       if (uploadError) throw uploadError;
 
       const { error: dbError } = await supabase.from('ordenes_carga').insert([{
