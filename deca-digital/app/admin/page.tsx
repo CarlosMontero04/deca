@@ -61,10 +61,14 @@ export default function AdminPanel() {
     }
   }, []);
 
+  // Solo el email de admin puede ver esta página — doble barrera junto al ADMIN_SECRET de las APIs
+  const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'carlosmonteroh04@gmail.com';
+
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/login'); return; }
+      if (session.user.email !== ADMIN_EMAIL) { router.push('/'); return; }
       setUser(session.user);
     };
     init();

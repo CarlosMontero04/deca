@@ -153,11 +153,11 @@ export default function FlotaPanel() {
     if (!userId) return;
     const orgId = await getOrgId(supabase);
     const payload = { company_name: carrierForm.company_name, cif: carrierForm.cif, address: carrierForm.address, phone: carrierForm.phone, email: carrierForm.email, user_id: userId, org_id: orgId };
-    if (carrierForm.id) {
-      await supabase.from('carriers').update(payload).eq('id', carrierForm.id);
-    } else {
-      await supabase.from('carriers').insert([payload]);
-    }
+    const { error } = carrierForm.id
+      ? await supabase.from('carriers').update(payload).eq('id', carrierForm.id)
+      : await supabase.from('carriers').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar transportista: ${error.message}`); return; }
+    showToast('✓ Transportista guardado');
     resetForms();
     await loadAll(userId);
   };
@@ -166,7 +166,9 @@ export default function FlotaPanel() {
 
   const deleteCarrier = async (id: string) => {
     if (!confirm('¿Eliminar este transportista? Los conductores y tractoras vinculados quedarán sin vincular, pero no se borran.')) return;
-    await supabase.from('carriers').delete().eq('id', id);
+    const { error } = await supabase.from('carriers').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar transportista: ${error.message}`); return; }
+    showToast('✓ Transportista eliminado');
     if (userId) await loadAll(userId);
   };
 
@@ -179,11 +181,11 @@ export default function FlotaPanel() {
       name: driverForm.name, dni: driverForm.dni, email: driverForm.email || null,
       phone: driverForm.phone, carrier_id: driverForm.carrier_id || null, user_id: userId, org_id: orgId
     };
-    if (driverForm.id) {
-      await supabase.from('drivers').update(payload).eq('id', driverForm.id);
-    } else {
-      await supabase.from('drivers').insert([payload]);
-    }
+    const { error } = driverForm.id
+      ? await supabase.from('drivers').update(payload).eq('id', driverForm.id)
+      : await supabase.from('drivers').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar conductor: ${error.message}`); return; }
+    showToast('✓ Conductor guardado');
     resetForms();
     await loadAll(userId);
   };
@@ -192,7 +194,9 @@ export default function FlotaPanel() {
 
   const deleteDriver = async (id: string) => {
     if (!confirm('¿Eliminar este conductor?')) return;
-    await supabase.from('drivers').delete().eq('id', id);
+    const { error } = await supabase.from('drivers').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar conductor: ${error.message}`); return; }
+    showToast('✓ Conductor eliminado');
     if (userId) await loadAll(userId);
   };
 
@@ -206,11 +210,11 @@ export default function FlotaPanel() {
       internal_title: tractorForm.internal_title || null,
       carrier_id: tractorForm.carrier_id || null, user_id: userId, org_id: orgId
     };
-    if (tractorForm.id) {
-      await supabase.from('tractors').update(payload).eq('id', tractorForm.id);
-    } else {
-      await supabase.from('tractors').insert([payload]);
-    }
+    const { error } = tractorForm.id
+      ? await supabase.from('tractors').update(payload).eq('id', tractorForm.id)
+      : await supabase.from('tractors').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar tractora: ${error.message}`); return; }
+    showToast('✓ Tractora guardada');
     resetForms();
     await loadAll(userId);
   };
@@ -219,7 +223,9 @@ export default function FlotaPanel() {
 
   const deleteTractor = async (id: string) => {
     if (!confirm('¿Eliminar esta tractora?')) return;
-    await supabase.from('tractors').delete().eq('id', id);
+    const { error } = await supabase.from('tractors').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar tractora: ${error.message}`); return; }
+    showToast('✓ Tractora eliminada');
     if (userId) await loadAll(userId);
   };
 
@@ -233,11 +239,11 @@ export default function FlotaPanel() {
       internal_title: trailerForm.internal_title || null,
       carrier_id: trailerForm.carrier_id || null, user_id: userId, org_id: orgId
     };
-    if (trailerForm.id) {
-      await supabase.from('trailers').update(payload).eq('id', trailerForm.id);
-    } else {
-      await supabase.from('trailers').insert([payload]);
-    }
+    const { error } = trailerForm.id
+      ? await supabase.from('trailers').update(payload).eq('id', trailerForm.id)
+      : await supabase.from('trailers').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar remolque: ${error.message}`); return; }
+    showToast('✓ Remolque guardado');
     resetForms();
     await loadAll(userId);
   };
@@ -246,7 +252,9 @@ export default function FlotaPanel() {
 
   const deleteTrailer = async (id: string) => {
     if (!confirm('¿Eliminar este remolque?')) return;
-    await supabase.from('trailers').delete().eq('id', id);
+    const { error } = await supabase.from('trailers').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar remolque: ${error.message}`); return; }
+    showToast('✓ Remolque eliminado');
     if (userId) await loadAll(userId);
   };
 
@@ -256,11 +264,11 @@ export default function FlotaPanel() {
     if (!userId) return;
     const orgId = await getOrgId(supabase);
     const payload = { title: locationForm.title, address: locationForm.address, user_id: userId, org_id: orgId };
-    if (locationForm.id) {
-      await supabase.from('locations').update(payload).eq('id', locationForm.id);
-    } else {
-      await supabase.from('locations').insert([payload]);
-    }
+    const { error } = locationForm.id
+      ? await supabase.from('locations').update(payload).eq('id', locationForm.id)
+      : await supabase.from('locations').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar ubicación: ${error.message}`); return; }
+    showToast('✓ Ubicación guardada');
     resetForms();
     await loadAll(userId);
   };
@@ -269,7 +277,9 @@ export default function FlotaPanel() {
 
   const deleteLocation = async (id: string) => {
     if (!confirm('¿Eliminar esta ubicación?')) return;
-    await supabase.from('locations').delete().eq('id', id);
+    const { error } = await supabase.from('locations').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar ubicación: ${error.message}`); return; }
+    showToast('✓ Ubicación eliminada');
     if (userId) await loadAll(userId);
   };
 

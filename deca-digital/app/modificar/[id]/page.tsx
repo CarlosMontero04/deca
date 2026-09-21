@@ -32,6 +32,7 @@ export default function ModificarDeca() {
   const [destination, setDestination] = useState('');
   const [goodsDescription, setGoodsDescription] = useState('');
   const [grossWeight, setGrossWeight] = useState('');
+  const [packageCount, setPackageCount] = useState('');
   const [observationsField, setObservationsField] = useState('');
   const [stopsText, setStopsText] = useState('');
   const [shipperName, setShipperName] = useState('');
@@ -131,6 +132,7 @@ export default function ModificarDeca() {
         setDestination(data.route?.destinationMain || '');
         setGoodsDescription(data.shipments?.[0]?.goodsDescription || '');
         setGrossWeight(String(data.shipments?.[0]?.grossWeightKg ?? ''));
+        setPackageCount(String(data.shipments?.[0]?.packageCount ?? ''));
         setObservationsField(data.observations || '');
         setShipperName(data.contractual_shipper?.companyName || '');
         setShipperCif(data.contractual_shipper?.cif || '');
@@ -168,6 +170,7 @@ export default function ModificarDeca() {
       setShipperCif(c.cif);
       setShipperAddress(c.address || '');
       setShipperPhone(c.phone || '');
+      setShipperEmail(c.email || '');
     }
   };
 
@@ -230,6 +233,7 @@ export default function ModificarDeca() {
       destination: deca.route?.destinationMain || '',
       goodsDescription: deca.shipments?.[0]?.goodsDescription || '',
       grossWeight: String(deca.shipments?.[0]?.grossWeightKg ?? ''),
+      packageCount: String(deca.shipments?.[0]?.packageCount ?? ''),
       observations: deca.observations || '',
       shipperName: deca.contractual_shipper?.companyName || '',
       shipperCif: deca.contractual_shipper?.cif || '',
@@ -256,6 +260,7 @@ export default function ModificarDeca() {
       { field: 'destination', label: 'Lugar de Destino', previousValue: original.destination, newValue: destination },
       { field: 'goodsDescription', label: 'Naturaleza de la Mercancía', previousValue: original.goodsDescription, newValue: goodsDescription },
       { field: 'grossWeight', label: 'Peso Bruto (Kg)', previousValue: original.grossWeight, newValue: grossWeight },
+      { field: 'packageCount', label: 'Número de Bultos', previousValue: original.packageCount, newValue: packageCount },
       { field: 'observations', label: 'Observaciones', previousValue: original.observations, newValue: observationsField },
       { field: 'stops', label: 'Paradas Intermedias', previousValue: originalStopsText, newValue: stopsText },
     ];
@@ -320,7 +325,7 @@ export default function ModificarDeca() {
       };
       const nuevosShipments = (deca.shipments || []).map((s: any, idx: number) =>
         idx === 0
-          ? { ...s, originAddress: origin, destinationAddress: destination, goodsDescription, grossWeightKg: parseFloat(grossWeight) || 0 }
+          ? { ...s, originAddress: origin, destinationAddress: destination, goodsDescription, grossWeightKg: parseFloat(grossWeight) || 0, packageCount: parseInt(packageCount) || s.packageCount || 0 }
           : s
       );
       const nuevoContractualShipper = {
@@ -630,6 +635,10 @@ export default function ModificarDeca() {
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Peso Bruto (Kg)</label>
               <textarea ref={grossWeightRef} value={grossWeight} onChange={e => { setGrossWeight(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Número de Bultos</label>
+              <input type="number" min="0" value={packageCount} onChange={e => setPackageCount(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Origen</label>
