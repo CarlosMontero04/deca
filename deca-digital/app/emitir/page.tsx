@@ -139,6 +139,12 @@ export default function EmitirDeca() {
   const [savedDrivers, setSavedDrivers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
+  const [savedShippers, setSavedShippers] = useState<any[]>([]);
+  const [selectedShipperId, setSelectedShipperId] = useState('');
+  // Datos de tu propia empresa (company_profile) — el Cargador Contractual
+  // por defecto. Se guardan aparte para poder volver a ellos si el usuario
+  // selecciona un cargador alternativo y luego se arrepiente.
+  const [defaultShipper, setDefaultShipper] = useState<{ company_name: string; cif: string; address: string; phone: string; email: string } | null>(null);
   const [selectedCarrierId, setSelectedCarrierId] = useState('');
   const [fleetSaveMessage, setFleetSaveMessage] = useState('');
   const [copiedMessage, setCopiedMessage] = useState(false);
@@ -152,29 +158,65 @@ export default function EmitirDeca() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const uid = session.user.id;
-      const [c, d, t, tr, company] = await Promise.all([
+      const [c, d, t, tr, company, s] = await Promise.all([
         supabase.from('carriers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('tractors').select('*').order('tractor_plate'),
         supabase.from('trailers').select('*').order('trailer_plate'),
         supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
+        supabase.from('alternative_shippers').select('*').order('company_name'),
       ]);
       setSavedCarriers(c.data || []);
       setSavedDrivers(d.data || []);
       setSavedTractors(t.data || []);
       setSavedTrailers(tr.data || []);
-      // OPERPAL es siempre el Cargador Contractual (art. 4 Orden FOM/2861/2012):
-      // se precarga solo, pero sigue siendo editable por si hiciera falta.
+      setSavedShippers(s.data || []);
+      // Tu empresa es el Cargador Contractual por defecto (art. 4 Orden
+      // FOM/2861/2012): se precarga sola, pero sigue siendo editable, y se
+      // puede sustituir por otro cargador guardado en Flota si hace falta.
       if (company.data) {
-        setShipperName(company.data.company_name || '');
-        setShipperCif(company.data.cif || '');
-        setShipperAddress(company.data.address || '');
-        setShipperPhone(company.data.phone || '');
-        setShipperEmail(company.data.email || '');
+        const datosEmpresa = {
+          company_name: company.data.company_name || '',
+          cif: company.data.cif || '',
+          address: company.data.address || '',
+          phone: company.data.phone || '',
+          email: company.data.email || '',
+        };
+        setDefaultShipper(datosEmpresa);
+        setShipperName(datosEmpresa.company_name);
+        setShipperCif(datosEmpresa.cif);
+        setShipperAddress(datosEmpresa.address);
+        setShipperPhone(datosEmpresa.phone);
+        setShipperEmail(datosEmpresa.email);
       }
     };
     loadFleet();
   }, []);
+
+  // Al elegir un cargador contractual alternativo se sustituyen los campos
+  // del Bloque A por sus datos; al volver a "-- Seleccionar --" se restauran
+  // los datos de tu propia empresa (el cargador contractual por defecto).
+  const handleSelectShipper = (shipperId: string) => {
+    setSelectedShipperId(shipperId);
+    if (!shipperId) {
+      if (defaultShipper) {
+        setShipperName(defaultShipper.company_name);
+        setShipperCif(defaultShipper.cif);
+        setShipperAddress(defaultShipper.address);
+        setShipperPhone(defaultShipper.phone);
+        setShipperEmail(defaultShipper.email);
+      }
+      return;
+    }
+    const s = savedShippers.find(s => s.id === shipperId);
+    if (s) {
+      setShipperName(s.company_name);
+      setShipperCif(s.cif);
+      setShipperAddress(s.address || '');
+      setShipperPhone(s.phone || '');
+      setShipperEmail(s.email || '');
+    }
+  };
 
   const handleSelectCarrier = (carrierId: string) => {
     setSelectedCarrierId(carrierId);
@@ -615,6 +657,19 @@ export default function EmitirDeca() {
               <h3 className="font-bold text-slate-800">A. Cargador Contractual</h3>
               <a href="/flota" className="text-xs font-semibold text-blue-600 hover:text-blue-700">Editar datos de OPERPAL →</a>
             </div>
+
+            {savedShippers.length > 0 && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Usar otro Cargador Contractual (opcional)</label>
+                <SearchableSelect
+                  value={selectedShipperId}
+                  onChange={handleSelectShipper}
+                  options={savedShippers.map(s => ({ value: s.id, label: s.company_name }))}
+                  placeholder="-- Usar datos de tu empresa (por defecto) --"
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre / Denominación Social</label>

@@ -8,7 +8,7 @@ import SearchableSelect from '../components/SearchableSelect';
 import { getOrgId } from '../utils/getOrgId';
 import { useOrgLogo } from '../hooks/useOrgLogo';
 
-type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones';
+type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones' | 'cargadores';
 
 export default function FlotaPanel() {
   const { logoUrl: orgLogoUrl, orgName } = useOrgLogo();
@@ -27,6 +27,7 @@ export default function FlotaPanel() {
   const [tractors, setTractors] = useState<any[]>([]);
   const [trailers, setTrailers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
+  const [shippers, setShippers] = useState<any[]>([]);
 
   // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
   const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '', logo_url: '', logo_width_px: 0, logo_height_px: 0 });
@@ -48,6 +49,9 @@ export default function FlotaPanel() {
   const [trailerForm, setTrailerForm] = useState({ id: '', trailer_plate: '', carrier_id: '', internal_title: '' });
   // Formulario de Ubicación (origen/destino guardado, con título para buscarlo)
   const [locationForm, setLocationForm] = useState({ id: '', title: '', address: '' });
+  // Formulario de Cargador Contractual alternativo (empresas distintas de la
+  // tuya que a veces también actúan como Cargador Contractual en el Bloque A)
+  const [shipperForm, setShipperForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
 
   // Hace que una caja de texto crezca sola según el contenido, en vez de
   // quedarse con una altura fija y barra de scroll — igual que en Órdenes de Carga.
@@ -72,19 +76,21 @@ export default function FlotaPanel() {
   }, [locationForm.title, locationForm.address]);
 
   const loadAll = async (uid: string) => {
-    const [c, d, t, tr, loc, e] = await Promise.all([
+    const [c, d, t, tr, loc, e, s] = await Promise.all([
       supabase.from('carriers').select('*').order('company_name'),
       supabase.from('drivers').select('*').order('name'),
       supabase.from('tractors').select('*').order('tractor_plate'),
       supabase.from('trailers').select('*').order('trailer_plate'),
       supabase.from('locations').select('*').order('title'),
       supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
+      supabase.from('alternative_shippers').select('*').order('company_name'),
     ]);
     setCarriers(c.data || []);
     setDrivers(d.data || []);
     setTractors(t.data || []);
     setTrailers(tr.data || []);
     setLocations(loc.data || []);
+    setShippers(s.data || []);
     if (e.data) {
       setCompanyForm({
         company_name: e.data.company_name || '',
@@ -122,6 +128,7 @@ export default function FlotaPanel() {
     setTractorForm({ id: '', tractor_plate: '', carrier_id: '', internal_title: '' });
     setTrailerForm({ id: '', trailer_plate: '', carrier_id: '', internal_title: '' });
     setLocationForm({ id: '', title: '', address: '' });
+    setShipperForm({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
   };
 
   // --- Mi Empresa (Cargador Contractual fijo) ---
@@ -283,6 +290,31 @@ export default function FlotaPanel() {
     if (userId) await loadAll(userId);
   };
 
+  // --- Cargadores Contractuales alternativos ---
+  const saveShipper = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    const orgId = await getOrgId(supabase);
+    const payload = { company_name: shipperForm.company_name, cif: shipperForm.cif, address: shipperForm.address, phone: shipperForm.phone, email: shipperForm.email, user_id: userId, org_id: orgId };
+    const { error } = shipperForm.id
+      ? await supabase.from('alternative_shippers').update(payload).eq('id', shipperForm.id)
+      : await supabase.from('alternative_shippers').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar cargador contractual: ${error.message}`); return; }
+    showToast('✓ Cargador contractual guardado');
+    resetForms();
+    await loadAll(userId);
+  };
+
+  const editShipper = (s: any) => setShipperForm({ id: s.id, company_name: s.company_name, cif: s.cif, address: s.address || '', phone: s.phone || '', email: s.email || '' });
+
+  const deleteShipper = async (id: string) => {
+    if (!confirm('¿Eliminar este cargador contractual alternativo?')) return;
+    const { error } = await supabase.from('alternative_shippers').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar cargador contractual: ${error.message}`); return; }
+    showToast('✓ Cargador contractual eliminado');
+    if (userId) await loadAll(userId);
+  };
+
   const carrierName = (carrierId: string | null) => carriers.find(c => c.id === carrierId)?.company_name || '—';
 
   const q = search.trim().toLowerCase();
@@ -291,6 +323,7 @@ export default function FlotaPanel() {
   const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q));
   const filteredTrailers = trailers.filter(t => !q || t.trailer_plate?.toLowerCase().includes(q));
   const filteredLocations = locations.filter(l => !q || l.title?.toLowerCase().includes(q) || l.address?.toLowerCase().includes(q));
+  const filteredShippers = shippers.filter(s => !q || s.company_name?.toLowerCase().includes(q) || s.cif?.toLowerCase().includes(q));
 
   if (loading) {
     return (
@@ -342,13 +375,13 @@ export default function FlotaPanel() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex gap-2 flex-wrap">
-            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques', 'ubicaciones'] as Tab[]).map(t => (
+            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques', 'ubicaciones', 'cargadores'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); resetForms(); setSearch(''); }}
                 className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
               >
-                {t === 'empresa' ? 'Mi Empresa' : t}
+                {t === 'empresa' ? 'Mi Empresa' : t === 'cargadores' ? 'Otros Cargadores' : t}
               </button>
             ))}
           </div>
@@ -357,7 +390,7 @@ export default function FlotaPanel() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={tab === 'transportistas' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : 'Buscar por matrícula...'}
+              placeholder={tab === 'transportistas' || tab === 'cargadores' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : 'Buscar por matrícula...'}
               className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
             />
           )}
@@ -696,6 +729,47 @@ export default function FlotaPanel() {
                     </tr>
                   ))}
                   {filteredLocations.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400">{locations.length === 0 ? 'Sin ubicaciones guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* OTROS CARGADORES CONTRACTUALES */}
+        {tab === 'cargadores' && (
+          <div className="space-y-6">
+            <form onSubmit={saveShipper} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {shipperForm.id ? 'Editar' : 'Nuevo'} Cargador Contractual</h3>
+              <p className="text-xs text-slate-500">Guarda aquí otras empresas que a veces actúan como Cargador Contractual (Bloque A) en tus DeCA. Al emitir uno, podrás elegir cuál usar en vez de los datos de tu empresa por defecto.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input required placeholder="Nombre / Denominación Social" value={shipperForm.company_name} onChange={e => setShipperForm({ ...shipperForm, company_name: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <input required placeholder="CIF" value={shipperForm.cif} onChange={e => setShipperForm({ ...shipperForm, cif: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <input placeholder="Dirección y Población" value={shipperForm.address} onChange={e => setShipperForm({ ...shipperForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 sm:col-span-2" />
+                <input placeholder="Teléfono" value={shipperForm.phone} onChange={e => setShipperForm({ ...shipperForm, phone: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <input type="email" placeholder="Email" value={shipperForm.email} onChange={e => setShipperForm({ ...shipperForm, email: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> {shipperForm.id ? 'Guardar Cambios' : 'Añadir'}</button>
+                {shipperForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
+              </div>
+            </form>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Empresa</th><th className="p-3">CIF</th><th className="p-3">Teléfono</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredShippers.map(s => (
+                    <tr key={s.id}>
+                      <td className="p-3 font-semibold">{s.company_name}</td>
+                      <td className="p-3">{s.cif}</td>
+                      <td className="p-3">{s.phone}</td>
+                      <td className="p-3 text-right flex justify-end gap-2">
+                        <button onClick={() => editShipper(s)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => deleteShipper(s.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredShippers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{shippers.length === 0 ? 'Sin cargadores contractuales alternativos guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
