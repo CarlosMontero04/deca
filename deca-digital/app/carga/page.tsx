@@ -221,45 +221,45 @@ export default function PanelOrdenesCarga() {
                           onClick={() => handleQuickNotify(orden, 'telefono')}
                           disabled={!orden.carrier_phone || notifyingId === orden.id}
                           title="Reenviar por WhatsApp"
-                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-40"
+                          className="h-8 w-8 flex items-center justify-center shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-40"
                         >
-                          <MessageCircle className="w-4 h-4 shrink-0" />
-                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">WhatsApp</span>
+                          <MessageCircle className="w-4 h-4" />
+                          <span className="sr-only">Reenviar por WhatsApp</span>
                         </button>
                         <button
                           onClick={() => handleQuickNotify(orden, 'email')}
                           disabled={!orden.carrier_email || notifyingId === orden.id}
                           title="Reenviar por Email"
-                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-24 disabled:hover:w-8 overflow-hidden px-2 bg-blue-800 hover:bg-blue-900 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-40"
+                          className="h-8 w-8 flex items-center justify-center shrink-0 bg-blue-800 hover:bg-blue-900 text-white rounded-lg shadow-sm transition-colors disabled:opacity-40"
                         >
-                          <Mail className="w-4 h-4 shrink-0" />
-                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Email</span>
+                          <Mail className="w-4 h-4" />
+                          <span className="sr-only">Reenviar por Email</span>
                         </button>
                         <button
                           onClick={() => router.push(`/carga/modificar/${orden.id}`)}
                           title="Editar"
-                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-24 overflow-hidden px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-all duration-300"
+                          className="h-8 w-8 flex items-center justify-center shrink-0 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors"
                         >
-                          <FileEdit className="w-4 h-4 shrink-0" />
-                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">Editar</span>
+                          <FileEdit className="w-4 h-4" />
+                          <span className="sr-only">Editar</span>
                         </button>
                         <button
                           onClick={() => handlePreview(orden)}
                           disabled={previewingId === orden.id}
                           title="Previsualizar"
-                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
+                          className="h-8 w-8 flex items-center justify-center shrink-0 bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
                         >
-                          <Eye className="w-4 h-4 shrink-0" />
-                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{previewingId === orden.id ? 'Abriendo...' : 'Ver'}</span>
+                          <Eye className="w-4 h-4" />
+                          <span className="sr-only">{previewingId === orden.id ? 'Abriendo...' : 'Ver'}</span>
                         </button>
                         <button
                           onClick={() => handleDownload(orden)}
                           disabled={downloadingId === orden.id}
                           title="Descargar"
-                          className="group flex items-center gap-1.5 h-8 w-8 hover:w-32 disabled:hover:w-8 overflow-hidden px-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all duration-300 disabled:opacity-50"
+                          className="h-8 w-8 flex items-center justify-center shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
                         >
-                          <Download className="w-4 h-4 shrink-0" />
-                          <span className="text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">{downloadingId === orden.id ? 'Cargando...' : 'Descargar'}</span>
+                          <Download className="w-4 h-4" />
+                          <span className="sr-only">{downloadingId === orden.id ? 'Cargando...' : 'Descargar'}</span>
                         </button>
                       </div>
                     </td>
