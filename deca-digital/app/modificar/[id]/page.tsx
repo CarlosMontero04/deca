@@ -325,7 +325,7 @@ export default function ModificarDeca() {
       };
       const nuevosShipments = (deca.shipments || []).map((s: any, idx: number) =>
         idx === 0
-          ? { ...s, originAddress: origin, destinationAddress: destination, goodsDescription, grossWeightKg: parseFloat(grossWeight) || 0, packageCount: parseInt(packageCount) || s.packageCount || 0 }
+          ? { ...s, originAddress: origin, destinationAddress: destination, goodsDescription, grossWeightKg: parseFloat(grossWeight) || 0, packageCount: packageCount.trim() || s.packageCount || '0' }
           : s
       );
       const nuevoContractualShipper = {
