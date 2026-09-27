@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { ArrowLeft, UserCircle, Save, KeyRound, Mail, AlertTriangle, Building2, ImagePlus, X } from 'lucide-react';
+import { getOrgId } from '../utils/getOrgId';
 
 export default function MiCuenta() {
   const router = useRouter();
@@ -186,12 +187,18 @@ export default function MiCuenta() {
     setCompanyError(null);
     setCompanySaved(false);
 
-    // Obtener el org_id del usuario
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // Obtener el org_id del usuario. Si por lo que sea no se puede determinar
+    // (sesión recién creada, fallo de red...), cortamos aquí con un mensaje
+    // claro en vez de intentar guardar con org_id vacío, que el servidor
+    // rechazaría igualmente por seguridad (RLS) con un error críptico.
+    let orgId: string;
+    try {
+      orgId = await getOrgId(supabase);
+    } catch (err: any) {
+      setCompanyError(err.message || 'No se pudo determinar tu organización. Recarga la página e inténtalo de nuevo.');
+      setCompanySaving(false);
+      return;
+    }
 
     // Si hay logo, intentamos obtener sus dimensiones desde el elemento img de la preview
     // Las guardamos como null si no están disponibles (se pueden inferir después)
@@ -217,7 +224,7 @@ export default function MiCuenta() {
       .from('company_profile')
       .upsert({
         user_id: user.id,
-        org_id: membership?.org_id ?? null,
+        org_id: orgId,
         company_name: companyName || null,
         cif: cif || null,
         address: address || null,
