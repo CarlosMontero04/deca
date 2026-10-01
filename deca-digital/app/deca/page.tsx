@@ -239,14 +239,14 @@ export default function Dashboard() {
           <button onClick={() => router.push('/')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Menú principal">
             <Home className="w-5 h-5" />
           </button>
-          <div className="h-8 w-px bg-slate-200"></div>
-          <div className="flex flex-col items-end">
-            <span className="text-xs font-bold text-slate-800">{user.user_metadata?.full_name || 'Usuario'}</span>
+          <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-xs font-bold text-slate-800 max-w-[12rem] truncate">{user.user_metadata?.full_name || 'Usuario'}</span>
             <span className="text-[10px] uppercase font-bold text-blue-600 tracking-wider">
               {isAdmin ? 'Administrador' : 'Transportista'}
             </span>
           </div>
-          <div className="h-8 w-px bg-slate-200"></div>
+          <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
           <button onClick={() => router.push('/cuenta')} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Mi Cuenta">
             <UserCircle className="w-5 h-5" />
           </button>

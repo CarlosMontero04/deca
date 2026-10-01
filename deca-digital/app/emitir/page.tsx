@@ -6,6 +6,7 @@ import { FileText, ArrowLeft, Save, Truck, Eye, CheckCircle } from 'lucide-react
 import { createClient } from '../utils/supabase/client';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '../utils/notifyDriver';
+import { savePdfAs } from '../utils/savePdfAs';
 import { generateDecaId } from '../utils/generateDecaId';
 import { DecaDocument } from '../types';
 import SearchableSelect from '../components/SearchableSelect';
@@ -134,8 +135,9 @@ export default function EmitirDeca() {
   // Tras guardar con éxito, guardamos aquí lo necesario para notificar al conductor
   // mediante un clic explícito (ver por qué en notifyDriver.ts)
   const [createdInfo, setCreatedInfo] = useState<{
-    id: string; verificationUrl: string; phone: string; email?: string; method: NotificationMethod;
+    id: string; verificationUrl: string; phone: string; email?: string; method: NotificationMethod; pdfStoragePath: string;
   } | null>(null);
+  const [savingAs, setSavingAs] = useState(false);
 
   // Flota guardada (panel /flota), para autorellenar en vez de escribir todo a mano
   const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
@@ -153,6 +155,11 @@ export default function EmitirDeca() {
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
   const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
+  // Solo los administradores de la organización pueden añadir datos nuevos a
+  // la flota — el resto de miembros solo puede elegir entre los ya guardados
+  // con los desplegables, así que los botones de "Guardar X en mi flota" se
+  // ocultan para ellos.
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
 
   const supabase = createClient();
 
@@ -161,6 +168,13 @@ export default function EmitirDeca() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       const uid = session.user.id;
+
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('role')
+        .single();
+      setIsOrgAdmin(membership?.role === 'admin');
+
       const [c, d, t, tr, company, s] = await Promise.all([
         supabase.from('carriers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
@@ -496,7 +510,8 @@ export default function EmitirDeca() {
         verificationUrl,
         phone: deca.carrier.phone,
         email: deca.carrier.driverEmail,
-        method: notifyMethod
+        method: notifyMethod,
+        pdfStoragePath
       });
       setLoading(false);
 
@@ -606,6 +621,26 @@ export default function EmitirDeca() {
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50"
             >
               {notifySending ? 'Enviando...' : `Notificar al conductor ${createdInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}`}
+            </button>
+            <button
+              type="button"
+              disabled={savingAs}
+              onClick={async () => {
+                setSavingAs(true);
+                const result = await savePdfAs(
+                  async () => {
+                    const { data, error } = await supabase.storage.from('decas-pdf').download(createdInfo.pdfStoragePath);
+                    if (error || !data) throw new Error('No se pudo descargar el PDF.');
+                    return data;
+                  },
+                  `${createdInfo.id}.pdf`
+                );
+                setSavingAs(false);
+                if (!result.success && !result.cancelled) alert(result.error || 'No se pudo guardar el PDF.');
+              }}
+              className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl transition disabled:opacity-50"
+            >
+              {savingAs ? 'Guardando...' : 'Guardar como...'}
             </button>
             {notifyResult?.success && (
               <p className="text-sm text-emerald-600 font-semibold">✓ {createdInfo.method === 'email' ? 'Correo enviado' : 'WhatsApp abierto'}</p>
@@ -766,6 +801,7 @@ export default function EmitirDeca() {
               </div>
             </div>
 
+            {isOrgAdmin && (
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={saveCarrierToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                 <Save className="w-3.5 h-3.5" /> Guardar transportista en mi flota
@@ -775,6 +811,7 @@ export default function EmitirDeca() {
               </button>
               {fleetSaveMessage && <span className="text-xs text-emerald-600 font-semibold self-center">{fleetSaveMessage}</span>}
             </div>
+            )}
 
             <div className="border-t pt-4 space-y-3">
               <h4 className="text-xs font-bold text-slate-600 uppercase">Notificar al conductor la emisión del DeCA</h4>
@@ -924,6 +961,7 @@ export default function EmitirDeca() {
               </div>
             </div>
 
+            {isOrgAdmin && (
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={saveTractorToFleet} className="text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
                 <Save className="w-3.5 h-3.5" /> Guardar tractora en mi flota
@@ -938,6 +976,7 @@ export default function EmitirDeca() {
               )}
               {fleetSaveMessage && <span className="text-xs text-emerald-600 font-semibold self-center">{fleetSaveMessage}</span>}
             </div>
+            )}
           </div>
 
           {/* BLOQUE G: Observaciones */}

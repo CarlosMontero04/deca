@@ -7,6 +7,7 @@ import { FileEdit, ArrowLeft, Save } from 'lucide-react';
 import { generateDecaPdf } from '@/app/utils/pdfGenerator';
 import { loadOrgBranding } from '@/app/utils/loadOrgBranding';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '@/app/utils/notifyDriver';
+import { savePdfAs } from '@/app/utils/savePdfAs';
 import SearchableSelect from '@/app/components/SearchableSelect';
 import { useOrgLogo } from '@/app/hooks/useOrgLogo';
 
@@ -115,6 +116,7 @@ export default function ModificarDeca() {
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
   const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [savingAs, setSavingAs] = useState(false);
 
   const supabase = createClient();
 
@@ -471,6 +473,26 @@ export default function ModificarDeca() {
             >
               {notifySending ? 'Enviando...' : `Notificar al conductor ${updatedInfo.method === 'telefono' ? 'por WhatsApp' : 'por Email'}`}
             </button>
+            <button
+              type="button"
+              disabled={savingAs || !deca?.pdf_storage_path}
+              onClick={async () => {
+                setSavingAs(true);
+                const result = await savePdfAs(
+                  async () => {
+                    const { data, error } = await supabase.storage.from('decas-pdf').download(deca.pdf_storage_path);
+                    if (error || !data) throw new Error('No se pudo descargar el PDF.');
+                    return data;
+                  },
+                  `${updatedInfo.id}.pdf`
+                );
+                setSavingAs(false);
+                if (!result.success && !result.cancelled) alert(result.error || 'No se pudo guardar el PDF.');
+              }}
+              className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-3 rounded-xl transition disabled:opacity-50"
+            >
+              {savingAs ? 'Guardando...' : 'Guardar como...'}
+            </button>
             {notifyResult?.success && (
               <p className="text-sm text-emerald-600 font-semibold">✓ {updatedInfo.method === 'email' ? 'Correo enviado' : 'WhatsApp abierto'}</p>
             )}
@@ -516,10 +538,10 @@ export default function ModificarDeca() {
 
           {/* ── Cargador Contractual ── */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cargador Contractual</p>
               {carrierOptions.length > 0 && (
-                <div className="w-56">
+                <div className="w-full sm:w-56">
                   <SearchableSelect
                     options={carrierOptions}
                     onChange={handleSelectCarrier}
@@ -554,10 +576,10 @@ export default function ModificarDeca() {
 
           {/* ── Conductor ── */}
           <div className="space-y-3 border-t pt-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Conductor</p>
               {driverOptions.length > 0 && (
-                <div className="w-56">
+                <div className="w-full sm:w-56">
                   <SearchableSelect
                     options={driverOptions}
                     onChange={handleSelectDriver}

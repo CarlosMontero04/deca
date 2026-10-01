@@ -3,10 +3,11 @@
 import { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle, Upload, CheckCircle } from 'lucide-react';
+import { Truck, User, Trash2, Pencil, Plus, X, Home, LogOut, UserCircle, Upload, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import SearchableSelect from '../components/SearchableSelect';
 import { getOrgId } from '../utils/getOrgId';
 import { useOrgLogo } from '../hooks/useOrgLogo';
+import { downloadFleetExcel, type FleetSheet } from '../utils/exportFleetToExcel';
 
 type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones' | 'cargadores';
 
@@ -21,6 +22,10 @@ export default function FlotaPanel() {
   const [user, setUser] = useState<any>(null);
   const [search, setSearch] = useState('');
   const [companySaved, setCompanySaved] = useState(false);
+  // Solo los administradores de la organización pueden crear, editar o
+  // borrar datos de flota y de Mi Empresa — el resto de miembros solo
+  // puede consultarlos (y usarlos en los desplegables al emitir un DeCA).
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
 
   const [carriers, setCarriers] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -111,6 +116,13 @@ export default function FlotaPanel() {
       if (!session) { router.push('/login'); return; }
       setUserId(session.user.id);
       setUser(session.user);
+
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('role')
+        .single();
+      setIsOrgAdmin(membership?.role === 'admin');
+
       await loadAll(session.user.id);
       setLoading(false);
     };
@@ -317,6 +329,84 @@ export default function FlotaPanel() {
 
   const carrierName = (carrierId: string | null) => carriers.find(c => c.id === carrierId)?.company_name || '—';
 
+  // --- Exportar toda la flota a un Excel (una hoja por categoría) ---
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const exportToExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const sheets: FleetSheet[] = [
+        {
+          name: 'Transportistas',
+          columns: [
+            { header: 'Empresa', key: 'empresa', width: 30 },
+            { header: 'CIF', key: 'cif', width: 15 },
+            { header: 'Dirección', key: 'direccion', width: 35 },
+            { header: 'Teléfono', key: 'telefono', width: 16 },
+            { header: 'Email', key: 'email', width: 28 },
+          ],
+          rows: carriers.map(c => ({ empresa: c.company_name || '', cif: c.cif || '', direccion: c.address || '', telefono: c.phone || '', email: c.email || '' })),
+        },
+        {
+          name: 'Conductores',
+          columns: [
+            { header: 'Nombre', key: 'nombre', width: 28 },
+            { header: 'DNI', key: 'dni', width: 14 },
+            { header: 'Teléfono', key: 'telefono', width: 16 },
+            { header: 'Email', key: 'email', width: 28 },
+            { header: 'Transportista', key: 'transportista', width: 30 },
+          ],
+          rows: drivers.map(d => ({ nombre: d.name || '', dni: d.dni || '', telefono: d.phone || '', email: d.email || '', transportista: carrierName(d.carrier_id) })),
+        },
+        {
+          name: 'Tractoras',
+          columns: [
+            { header: 'Matrícula', key: 'matricula', width: 16 },
+            { header: 'Título interno', key: 'titulo', width: 26 },
+            { header: 'Transportista', key: 'transportista', width: 30 },
+          ],
+          rows: tractors.map(t => ({ matricula: t.tractor_plate || '', titulo: t.internal_title || '', transportista: carrierName(t.carrier_id) })),
+        },
+        {
+          name: 'Remolques',
+          columns: [
+            { header: 'Matrícula', key: 'matricula', width: 16 },
+            { header: 'Título interno', key: 'titulo', width: 26 },
+            { header: 'Transportista', key: 'transportista', width: 30 },
+          ],
+          rows: trailers.map(t => ({ matricula: t.trailer_plate || '', titulo: t.internal_title || '', transportista: carrierName(t.carrier_id) })),
+        },
+        {
+          name: 'Ubicaciones',
+          columns: [
+            { header: 'Título', key: 'titulo', width: 26 },
+            { header: 'Dirección', key: 'direccion', width: 45 },
+          ],
+          rows: locations.map(l => ({ titulo: l.title || '', direccion: l.address || '' })),
+        },
+        {
+          name: 'Otros Cargadores',
+          columns: [
+            { header: 'Empresa', key: 'empresa', width: 30 },
+            { header: 'CIF', key: 'cif', width: 15 },
+            { header: 'Dirección', key: 'direccion', width: 35 },
+            { header: 'Teléfono', key: 'telefono', width: 16 },
+            { header: 'Email', key: 'email', width: 28 },
+          ],
+          rows: shippers.map(s => ({ empresa: s.company_name || '', cif: s.cif || '', direccion: s.address || '', telefono: s.phone || '', email: s.email || '' })),
+        },
+      ];
+
+      const today = new Date().toISOString().slice(0, 10);
+      const safeOrgName = (orgName || 'Flota').replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '_') || 'Flota';
+      await downloadFleetExcel(sheets, `Flota_${safeOrgName}_${today}.xlsx`, user?.email);
+      showToast('✓ Excel generado');
+    } catch (err: any) {
+      showToast(`✗ Error al generar el Excel: ${err.message}`);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   const q = search.trim().toLowerCase();
   const filteredCarriers = carriers.filter(c => !q || c.company_name?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q));
   const filteredDrivers = drivers.filter(d => !q || d.name?.toLowerCase().includes(q) || d.dni?.toLowerCase().includes(q));
@@ -340,9 +430,9 @@ export default function FlotaPanel() {
 
       {/* Toast de confirmación — aparece abajo a la derecha durante 3 segundos */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-800 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg animate-fade-in">
-          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-          {toast}
+        <div className="fixed bottom-6 left-6 right-6 sm:left-auto sm:right-6 sm:max-w-sm z-50 flex items-start gap-2 bg-slate-800 text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg animate-fade-in">
+          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+          <span className="break-words">{toast}</span>
         </div>
       )}
 
@@ -368,9 +458,20 @@ export default function FlotaPanel() {
       </header>
 
       <div className="flex-1 p-6 sm:p-10 max-w-6xl w-full mx-auto space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Gestión de Flota</h2>
-          <p className="text-sm text-slate-500">Guarda tus transportistas, conductores, tractoras y remolques habituales para rellenar los DeCA y Órdenes de Carga más rápido.</p>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">Gestión de Flota</h2>
+            <p className="text-sm text-slate-500">Guarda tus transportistas, conductores, tractoras y remolques habituales para rellenar los DeCA y Órdenes de Carga más rápido.</p>
+          </div>
+          <button
+            type="button"
+            onClick={exportToExcel}
+            disabled={exportingExcel}
+            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"
+            title="Descarga toda la flota en un archivo Excel, con una hoja por categoría"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> {exportingExcel ? 'Generando...' : 'Exportar a Excel'}
+          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -401,13 +502,19 @@ export default function FlotaPanel() {
           <form onSubmit={saveCompany} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> Mi Empresa (Cargador Contractual)</h3>
             <p className="text-xs text-slate-500">Estos datos se precargan automáticamente en el Bloque A al emitir un DeCA y aparecen en el pie del PDF.</p>
+            {!isOrgAdmin && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Solo los administradores de la organización pueden modificar los datos de la empresa.
+              </p>
+            )}
 
+            <fieldset disabled={!isOrgAdmin} className="contents border-0 m-0 p-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input required placeholder="Nombre / Denominación Social" value={companyForm.company_name} onChange={e => setCompanyForm({ ...companyForm, company_name: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
-              <input required placeholder="NIF / CIF" value={companyForm.cif} onChange={e => setCompanyForm({ ...companyForm, cif: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
-              <input placeholder="Dirección y Población" value={companyForm.address} onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 sm:col-span-2" />
-              <input placeholder="Teléfono" value={companyForm.phone} onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
-              <input type="email" placeholder="Email" value={companyForm.email} onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <input required placeholder="Nombre / Denominación Social" value={companyForm.company_name} onChange={e => setCompanyForm({ ...companyForm, company_name: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-500" />
+              <input required placeholder="NIF / CIF" value={companyForm.cif} onChange={e => setCompanyForm({ ...companyForm, cif: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-500" />
+              <input placeholder="Dirección y Población" value={companyForm.address} onChange={e => setCompanyForm({ ...companyForm, address: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 sm:col-span-2 disabled:bg-slate-50 disabled:text-slate-500" />
+              <input placeholder="Teléfono" value={companyForm.phone} onChange={e => setCompanyForm({ ...companyForm, phone: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-500" />
+              <input type="email" placeholder="Email" value={companyForm.email} onChange={e => setCompanyForm({ ...companyForm, email: e.target.value })} className="px-3 py-2 border rounded-lg text-sm text-slate-900 disabled:bg-slate-50 disabled:text-slate-500" />
             </div>
 
             <div>
@@ -417,7 +524,7 @@ export default function FlotaPanel() {
                 {/* Zona de clic para subir — visualmente clara */}
                 <button
                   type="button"
-                  disabled={logoUploading}
+                  disabled={logoUploading || !isOrgAdmin}
                   onClick={() => logoInputRef.current?.click()}
                   className={`relative flex flex-col items-center justify-center gap-2 w-full sm:w-48 h-28 rounded-xl border-2 border-dashed transition-colors
                     ${companyForm.logo_url
@@ -447,7 +554,7 @@ export default function FlotaPanel() {
                   ref={logoInputRef}
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  disabled={logoUploading}
+                  disabled={logoUploading || !isOrgAdmin}
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
@@ -496,7 +603,7 @@ export default function FlotaPanel() {
                   <p>PNG, JPG o WEBP</p>
                   <p>Máx. 1 MB</p>
                   <p>Fondo transparente<br/>recomendado</p>
-                  {companyForm.logo_url && !logoUploading && (
+                  {companyForm.logo_url && !logoUploading && isOrgAdmin && (
                     <button
                       type="button"
                       onClick={async () => {
@@ -514,18 +621,22 @@ export default function FlotaPanel() {
                 </div>
               </div>
             </div>
+            </fieldset>
 
-            <div className="flex items-center gap-3">
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4" /> Guardar Datos
-              </button>
-            </div>
+            {isOrgAdmin && (
+              <div className="flex items-center gap-3">
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4" /> Guardar Datos
+                </button>
+              </div>
+            )}
           </form>
         )}
 
         {/* TRANSPORTISTAS */}
         {tab === 'transportistas' && (
           <div className="space-y-6">
+            {isOrgAdmin && (
             <form onSubmit={saveCarrier} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {carrierForm.id ? 'Editar' : 'Nuevo'} Transportista</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -540,23 +651,26 @@ export default function FlotaPanel() {
                 {carrierForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
               </div>
             </form>
+            )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Empresa</th><th className="p-3">CIF</th><th className="p-3">Teléfono</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Empresa</th><th className="p-3">CIF</th><th className="p-3">Teléfono</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredCarriers.map(c => (
                     <tr key={c.id}>
                       <td className="p-3 font-semibold">{c.company_name}</td>
                       <td className="p-3">{c.cif}</td>
                       <td className="p-3">{c.phone}</td>
-                      <td className="p-3 text-right flex justify-end gap-2">
-                        <button onClick={() => editCarrier(c)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => deleteCarrier(c.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
-                      </td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editCarrier(c)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteCarrier(c.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
-                  {filteredCarriers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{carriers.length === 0 ? 'Sin transportistas guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredCarriers.length === 0 && <tr><td colSpan={isOrgAdmin ? 4 : 3} className="p-6 text-center text-slate-400">{carriers.length === 0 ? 'Sin transportistas guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -566,6 +680,7 @@ export default function FlotaPanel() {
         {/* CONDUCTORES */}
         {tab === 'conductores' && (
           <div className="space-y-6">
+            {isOrgAdmin && (
             <form onSubmit={saveDriver} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><User className="w-5 h-5 text-blue-600" /> {driverForm.id ? 'Editar' : 'Nuevo'} Conductor</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -586,23 +701,26 @@ export default function FlotaPanel() {
                 {driverForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
               </div>
             </form>
+            )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Nombre</th><th className="p-3">DNI</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Nombre</th><th className="p-3">DNI</th><th className="p-3">Transportista</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredDrivers.map(d => (
                     <tr key={d.id}>
                       <td className="p-3 font-semibold">{d.name}</td>
                       <td className="p-3">{d.dni}</td>
                       <td className="p-3">{carrierName(d.carrier_id)}</td>
-                      <td className="p-3 text-right flex justify-end gap-2">
-                        <button onClick={() => editDriver(d)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => deleteDriver(d.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
-                      </td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editDriver(d)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteDriver(d.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
-                  {filteredDrivers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{drivers.length === 0 ? 'Sin conductores guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredDrivers.length === 0 && <tr><td colSpan={isOrgAdmin ? 4 : 3} className="p-6 text-center text-slate-400">{drivers.length === 0 ? 'Sin conductores guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -612,6 +730,7 @@ export default function FlotaPanel() {
         {/* TRACTORAS */}
         {tab === 'tractoras' && (
           <div className="space-y-6">
+            {isOrgAdmin && (
             <form onSubmit={saveTractor} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {tractorForm.id ? 'Editar' : 'Nueva'} Tractora</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -630,23 +749,26 @@ export default function FlotaPanel() {
                 {tractorForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
               </div>
             </form>
+            )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula</th><th className="p-3">Título interno</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula</th><th className="p-3">Título interno</th><th className="p-3">Transportista</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredTractors.map(t => (
                     <tr key={t.id}>
                       <td className="p-3 font-semibold">{t.tractor_plate}</td>
                       <td className="p-3 text-slate-500 text-xs">{t.internal_title || '—'}</td>
                       <td className="p-3">{carrierName(t.carrier_id)}</td>
-                      <td className="p-3 text-right flex justify-end gap-2">
-                        <button onClick={() => editTractor(t)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => deleteTractor(t.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
-                      </td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editTractor(t)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteTractor(t.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
-                  {filteredTractors.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{tractors.length === 0 ? 'Sin tractoras guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredTractors.length === 0 && <tr><td colSpan={isOrgAdmin ? 4 : 3} className="p-6 text-center text-slate-400">{tractors.length === 0 ? 'Sin tractoras guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -656,6 +778,7 @@ export default function FlotaPanel() {
         {/* REMOLQUES */}
         {tab === 'remolques' && (
           <div className="space-y-6">
+            {isOrgAdmin && (
             <form onSubmit={saveTrailer} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {trailerForm.id ? 'Editar' : 'Nuevo'} Remolque</h3>
               <p className="text-xs text-slate-500">Un remolque es independiente de la tractora — así puedes reutilizar el mismo remolque con distintas tractoras.</p>
@@ -675,23 +798,26 @@ export default function FlotaPanel() {
                 {trailerForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
               </div>
             </form>
+            )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula</th><th className="p-3">Título interno</th><th className="p-3">Transportista</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Matrícula</th><th className="p-3">Título interno</th><th className="p-3">Transportista</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredTrailers.map(t => (
                     <tr key={t.id}>
                       <td className="p-3 font-semibold">{t.trailer_plate}</td>
                       <td className="p-3 text-slate-500 text-xs">{t.internal_title || '—'}</td>
                       <td className="p-3">{carrierName(t.carrier_id)}</td>
-                      <td className="p-3 text-right flex justify-end gap-2">
-                        <button onClick={() => editTrailer(t)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => deleteTrailer(t.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
-                      </td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editTrailer(t)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteTrailer(t.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
-                  {filteredTrailers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{trailers.length === 0 ? 'Sin remolques guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredTrailers.length === 0 && <tr><td colSpan={isOrgAdmin ? 4 : 3} className="p-6 text-center text-slate-400">{trailers.length === 0 ? 'Sin remolques guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -701,6 +827,7 @@ export default function FlotaPanel() {
         {/* UBICACIONES */}
         {tab === 'ubicaciones' && (
           <div className="space-y-6">
+            {isOrgAdmin && (
             <form onSubmit={saveLocation} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">{locationForm.id ? 'Editar' : 'Nueva'} Ubicación</h3>
               <p className="text-xs text-slate-500">Guarda un origen o destino habitual con un título corto para encontrarlo rápido al rellenar una Orden de Carga.</p>
@@ -713,22 +840,25 @@ export default function FlotaPanel() {
                 {locationForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
               </div>
             </form>
+            )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Título</th><th className="p-3">Dirección</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Título</th><th className="p-3">Dirección</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredLocations.map(l => (
                     <tr key={l.id}>
                       <td className="p-3 font-semibold">{l.title}</td>
                       <td className="p-3">{l.address}</td>
-                      <td className="p-3 text-right flex justify-end gap-2">
-                        <button onClick={() => editLocation(l)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => deleteLocation(l.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
-                      </td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editLocation(l)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteLocation(l.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
-                  {filteredLocations.length === 0 && <tr><td colSpan={3} className="p-6 text-center text-slate-400">{locations.length === 0 ? 'Sin ubicaciones guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredLocations.length === 0 && <tr><td colSpan={isOrgAdmin ? 3 : 2} className="p-6 text-center text-slate-400">{locations.length === 0 ? 'Sin ubicaciones guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -738,6 +868,7 @@ export default function FlotaPanel() {
         {/* OTROS CARGADORES CONTRACTUALES */}
         {tab === 'cargadores' && (
           <div className="space-y-6">
+            {isOrgAdmin && (
             <form onSubmit={saveShipper} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2"><Truck className="w-5 h-5 text-blue-600" /> {shipperForm.id ? 'Editar' : 'Nuevo'} Cargador Contractual</h3>
               <p className="text-xs text-slate-500">Guarda aquí otras empresas que a veces actúan como Cargador Contractual (Bloque A) en tus DeCA. Al emitir uno, podrás elegir cuál usar en vez de los datos de tu empresa por defecto.</p>
@@ -753,23 +884,26 @@ export default function FlotaPanel() {
                 {shipperForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
               </div>
             </form>
+            )}
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Empresa</th><th className="p-3">CIF</th><th className="p-3">Teléfono</th><th className="p-3 text-right">Acciones</th></tr></thead>
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Empresa</th><th className="p-3">CIF</th><th className="p-3">Teléfono</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
                 <tbody className="divide-y divide-slate-100 text-slate-900">
                   {filteredShippers.map(s => (
                     <tr key={s.id}>
                       <td className="p-3 font-semibold">{s.company_name}</td>
                       <td className="p-3">{s.cif}</td>
                       <td className="p-3">{s.phone}</td>
-                      <td className="p-3 text-right flex justify-end gap-2">
-                        <button onClick={() => editShipper(s)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
-                        <button onClick={() => deleteShipper(s.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
-                      </td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editShipper(s)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteShipper(s.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
                     </tr>
                   ))}
-                  {filteredShippers.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-400">{shippers.length === 0 ? 'Sin cargadores contractuales alternativos guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                  {filteredShippers.length === 0 && <tr><td colSpan={isOrgAdmin ? 4 : 3} className="p-6 text-center text-slate-400">{shippers.length === 0 ? 'Sin cargadores contractuales alternativos guardados' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>

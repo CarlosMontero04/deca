@@ -553,6 +553,7 @@ export default function AdminPanel() {
               }
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
@@ -748,6 +749,7 @@ export default function AdminPanel() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
