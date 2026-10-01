@@ -58,6 +58,7 @@ export default function EmitirDeca() {
 
   // Bloque E: Fecha de Realización del Transporte
   const [transportDate, setTransportDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(''); // Opcional: fecha de descarga
 
   // Bloque D: Mercancía
   const [goodsDesc, setGoodsDesc] = useState('');
@@ -411,7 +412,7 @@ export default function EmitirDeca() {
           originMain: origin,
           destinationMain: destination,
           plannedStartDate: new Date(transportDate).toISOString(),
-          plannedDeliveryDate: new Date(Date.now() + 86400000).toISOString(),
+          plannedDeliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : undefined,
         },
         history: [],
         digitalSignature: `SHA256-DIGITAL-SIGNATURE-${decaId}-${Date.now()}`,
@@ -835,6 +836,13 @@ export default function EmitirDeca() {
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha del Servicio</label>
                 <input type="date" required value={transportDate} onChange={e => setTransportDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  Fecha de Descarga <span className="font-normal text-slate-400">(opcional)</span>
+                </label>
+                <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+                <p className="text-xs text-slate-400 mt-1">Rellénala solo si ya la conoces al emitir el DeCA.</p>
               </div>
             </div>
             {transportDate && transportDate < new Date().toISOString().slice(0, 10) && (

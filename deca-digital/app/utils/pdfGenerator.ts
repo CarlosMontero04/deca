@@ -146,7 +146,13 @@ export async function generateDecaPdf(
   doc.setFontSize(11);
   doc.text(`Fecha de Realización del Transporte: ${fechaCorta(deca.route.plannedStartDate)}`, titleX, 36);
 
-  
+  // Fecha de descarga: es un dato opcional, así que solo se imprime si se rellenó.
+  if (deca.route.plannedDeliveryDate) {
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...GRAY_MUTED);
+    doc.setFontSize(8.5);
+    doc.text(`Fecha de Descarga: ${fechaCorta(deca.route.plannedDeliveryDate)}`, titleX, 41);
+  }
 
   // QR arriba a la derecha
   const qrSize = 24;
@@ -156,7 +162,7 @@ export async function generateDecaPdf(
   doc.text('Verificación', pageWidth - margin - qrSize / 2, 6 + qrSize + 3, { align: 'center' });
 
   // Franja de color divisoria
-  let y = Math.max(8 + logoHeight, 38) + 4;
+  let y = Math.max(8 + logoHeight, deca.route.plannedDeliveryDate ? 44 : 38) + 4;
   doc.setFillColor(...ACCENT);
   doc.rect(0, y, pageWidth, 1.4, 'F');
   y += 8;

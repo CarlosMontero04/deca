@@ -57,7 +57,9 @@ export interface DecaDocument {
     originMain: string;
     destinationMain: string;
     plannedStartDate: string;
-    plannedDeliveryDate: string;
+    // Fecha de descarga: dato opcional, el transportista no siempre la conoce
+    // de antemano al emitir el DeCA.
+    plannedDeliveryDate?: string;
   };
   history: ModificationLog[];
   digitalSignature: string;

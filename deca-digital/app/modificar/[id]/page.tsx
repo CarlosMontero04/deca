@@ -30,6 +30,7 @@ export default function ModificarDeca() {
   const [driverDni, setDriverDni] = useState('');
   const [phone, setPhone] = useState('');
   const [transportDate, setTransportDate] = useState('');
+  const [deliveryDate, setDeliveryDate] = useState(''); // Opcional: fecha de descarga
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [goodsDescription, setGoodsDescription] = useState('');
@@ -130,6 +131,7 @@ export default function ModificarDeca() {
         setPhone(data.carrier?.phone || '');
         setDriverEmail(data.carrier?.driverEmail || '');
         setTransportDate(data.route?.plannedStartDate ? new Date(data.route.plannedStartDate).toISOString().slice(0, 10) : '');
+        setDeliveryDate(data.route?.plannedDeliveryDate ? new Date(data.route.plannedDeliveryDate).toISOString().slice(0, 10) : '');
         setOrigin(data.route?.originMain || '');
         setDestination(data.route?.destinationMain || '');
         setGoodsDescription(data.shipments?.[0]?.goodsDescription || '');
@@ -231,6 +233,7 @@ export default function ModificarDeca() {
       driverDni: deca.carrier?.driverDni || '',
       phone: deca.carrier?.phone || '',
       transportDate: deca.route?.plannedStartDate ? new Date(deca.route.plannedStartDate).toISOString().slice(0, 10) : '',
+      deliveryDate: deca.route?.plannedDeliveryDate ? new Date(deca.route.plannedDeliveryDate).toISOString().slice(0, 10) : '',
       origin: deca.route?.originMain || '',
       destination: deca.route?.destinationMain || '',
       goodsDescription: deca.shipments?.[0]?.goodsDescription || '',
@@ -258,6 +261,7 @@ export default function ModificarDeca() {
       { field: 'shipperPhone', label: 'Teléfono Cargador Contractual', previousValue: original.shipperPhone, newValue: shipperPhone },
       { field: 'shipperEmail', label: 'Email Cargador Contractual', previousValue: original.shipperEmail, newValue: shipperEmail },
       { field: 'transportDate', label: 'Fecha de Realización del Transporte', previousValue: original.transportDate, newValue: transportDate },
+      { field: 'deliveryDate', label: 'Fecha de Descarga', previousValue: original.deliveryDate, newValue: deliveryDate },
       { field: 'origin', label: 'Lugar de Origen', previousValue: original.origin, newValue: origin },
       { field: 'destination', label: 'Lugar de Destino', previousValue: original.destination, newValue: destination },
       { field: 'goodsDescription', label: 'Naturaleza de la Mercancía', previousValue: original.goodsDescription, newValue: goodsDescription },
@@ -324,6 +328,7 @@ export default function ModificarDeca() {
         originMain: origin,
         destinationMain: destination,
         plannedStartDate: new Date(transportDate).toISOString(),
+        plannedDeliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : undefined,
       };
       const nuevosShipments = (deca.shipments || []).map((s: any, idx: number) =>
         idx === 0
@@ -633,6 +638,12 @@ export default function ModificarDeca() {
                   Esta fecha ya ha pasado. La norma exige que el DeCA exista antes de iniciar el servicio.
                 </p>
               )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Fecha de Descarga <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+              <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Peso Bruto (Kg)</label>
