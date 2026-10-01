@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Portal DeCA Digital",
   description: "Gestión de Documentos Electrónicos de Control Administrativo (DeCA) y Órdenes de Carga.",
   icons: {
-    icon: "/logo-operpal-icon.png",
+    icon: "/favicon-deca-digital.png",
   },
 };
 
