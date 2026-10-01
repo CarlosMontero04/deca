@@ -53,6 +53,7 @@ export default function AdminPanel() {
   const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null);
   const [orgDetails, setOrgDetails] = useState<Record<string, { members: any[]; carriers: any[] }>>({});
   const [orgDetailsLoading, setOrgDetailsLoading] = useState<string | null>(null);
+  const [roleSavingUserId, setRoleSavingUserId] = useState<string | null>(null);
 
   // Edición de módulos contratados
   const [editingModulesOrgId, setEditingModulesOrgId] = useState<string | null>(null);
@@ -200,6 +201,36 @@ export default function AdminPanel() {
       } finally {
         setOrgDetailsLoading(null);
       }
+    }
+  };
+
+  // ─── Ascender/degradar a un usuario como admin de su organización ───
+  // Un admin de organización ve y gestiona los DeCA y Órdenes de Carga de
+  // TODOS los usuarios de su empresa; un "member" normal solo ve los suyos.
+  const handleToggleRole = async (orgId: string, member: any) => {
+    const nuevoRol = member.role === 'admin' ? 'member' : 'admin';
+    setRoleSavingUserId(member.user_id);
+    try {
+      const res = await fetch('/api/admin/update-member-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminSecret, userId: member.user_id, orgId, role: nuevoRol }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        alert(data.error || 'Error al cambiar el rol.');
+      } else {
+        setOrgDetails(prev => {
+          const current = prev[orgId];
+          if (!current) return prev;
+          const updated = current.members.map(m => m.user_id === member.user_id ? { ...m, role: nuevoRol } : m);
+          return { ...prev, [orgId]: { ...current, members: updated } };
+        });
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setRoleSavingUserId(null);
     }
   };
 
@@ -573,14 +604,29 @@ export default function AdminPanel() {
                                   {!details || details.members.length === 0 ? (
                                     <p className="text-xs text-slate-400 italic">Sin usuarios todavía.</p>
                                   ) : (
-                                    <ul className="space-y-1">
-                                      {details.members.map((m: any) => (
-                                        <li key={m.user_id} className="text-sm text-slate-700 flex items-center gap-2">
-                                          <span className="font-medium">{m.email}</span>
-                                          <span className="px-1.5 py-0.5 bg-slate-200 text-slate-600 text-[10px] rounded-full uppercase font-bold">{m.role}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
+                                    <>
+                                      <ul className="space-y-1.5">
+                                        {details.members.map((m: any) => (
+                                          <li key={m.user_id} className="text-sm text-slate-700 flex items-center gap-2">
+                                            <span className="font-medium">{m.email}</span>
+                                            <span className={`px-1.5 py-0.5 text-[10px] rounded-full uppercase font-bold ${m.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-600'}`}>{m.role}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleToggleRole(org.id, m)}
+                                              disabled={roleSavingUserId === m.user_id}
+                                              className="text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-40"
+                                            >
+                                              {roleSavingUserId === m.user_id
+                                                ? 'Guardando...'
+                                                : m.role === 'admin' ? 'Quitar admin' : 'Hacer admin'}
+                                            </button>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                      <p className="text-[11px] text-slate-400 mt-1.5">
+                                        El admin de la organización ve y gestiona los DeCA y Órdenes de Carga de todos sus usuarios; el resto solo ve los suyos.
+                                      </p>
+                                    </>
                                   )}
                                 </div>
 
