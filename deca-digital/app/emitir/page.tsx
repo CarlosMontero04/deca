@@ -11,6 +11,7 @@ import { DecaDocument } from '../types';
 import SearchableSelect from '../components/SearchableSelect';
 import { getOrgId } from '../utils/getOrgId';
 import { loadOrgBranding } from '../utils/loadOrgBranding';
+import { useOrgLogo } from '../hooks/useOrgLogo';
 
 // Dominio canónico único de la app — usado en el QR y en la URL de verificación
 // para que ambos coincidan siempre (antes había dos dominios distintos mezclados).
@@ -18,6 +19,7 @@ const APP_URL = 'https://deca-ochre.vercel.app';
 
 export default function EmitirDeca() {
   const router = useRouter();
+  const { orgName } = useOrgLogo();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -596,7 +598,7 @@ export default function EmitirDeca() {
                 setNotifyResult(null);
                 const result = await notifyDriver(createdInfo.method, createdInfo.phone, createdInfo.email,
                   `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
-                  createdInfo.verificationUrl);
+                  createdInfo.verificationUrl, orgName);
                 setNotifySending(false);
                 setNotifyResult(result);
               }}
@@ -615,14 +617,14 @@ export default function EmitirDeca() {
                 <p className="text-xs text-slate-400 mb-1">Si el envío falla, copia este mensaje y pégalo donde quieras:</p>
                 <textarea
                   readOnly
-                  value={buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl)}
+                  value={buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl, orgName)}
                   rows={5}
                   className="w-full px-3 py-2 border rounded-lg text-xs text-slate-700 bg-slate-50 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl));
+                    navigator.clipboard.writeText(buildEmailFallback(createdInfo.email, `Aquí tienes tu Documento de Control (DeCA) ${createdInfo.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`, createdInfo.verificationUrl, orgName));
                     setCopiedMessage(true);
                     setTimeout(() => setCopiedMessage(false), 2000);
                   }}
@@ -655,7 +657,7 @@ export default function EmitirDeca() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between border-b pb-2">
               <h3 className="font-bold text-slate-800">A. Cargador Contractual</h3>
-              <a href="/flota" className="text-xs font-semibold text-blue-600 hover:text-blue-700">Editar datos de OPERPAL →</a>
+              <a href="/flota" className="text-xs font-semibold text-blue-600 hover:text-blue-700">Editar datos de {orgName || 'tu empresa'} →</a>
             </div>
 
             {savedShippers.length > 0 && (

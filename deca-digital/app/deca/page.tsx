@@ -65,7 +65,8 @@ export default function Dashboard() {
     const result = await notifyDriver(
       method, phone, email,
       `Aquí tienes tu Documento de Control (DeCA) ${doc.id}. Debes llevarlo contigo (PDF o QR) antes de iniciar el servicio.`,
-      verificationUrl
+      verificationUrl,
+      orgName
     );
     setNotifyingId(null);
     if (!result.success) alert(result.error);

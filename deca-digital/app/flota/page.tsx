@@ -29,7 +29,7 @@ export default function FlotaPanel() {
   const [locations, setLocations] = useState<any[]>([]);
   const [shippers, setShippers] = useState<any[]>([]);
 
-  // Formulario de Mi Empresa (Cargador Contractual — siempre OPERPAL en todos los DeCA)
+  // Formulario de Mi Empresa (Cargador Contractual — la tuya en todos los DeCA)
   const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '', logo_url: '', logo_width_px: 0, logo_height_px: 0 });
   const [logoUploading, setLogoUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);

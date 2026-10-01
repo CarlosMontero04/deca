@@ -337,7 +337,7 @@ export default function MiCuenta() {
               <Building2 className="w-4 h-4 text-blue-600" /> Perfil de Empresa
             </h3>
             <p className="text-xs text-slate-500 mt-1.5">
-              Estos datos aparecen en la cabecera de los PDFs generados (DeCA, órdenes de carga) en lugar del logo de OPERPAL.
+              Estos datos aparecen en la cabecera de los PDFs generados (DeCA). Si los dejas en blanco, se usará el logo por defecto.
             </p>
           </div>
 
@@ -447,7 +447,7 @@ export default function MiCuenta() {
             <label className="block text-xs font-semibold text-slate-600 mb-2">Colores corporativos en el PDF</label>
             <p className="text-xs text-slate-400 mb-3">
               Se usan en las cabeceras de sección, la franja divisoria y el texto de fecha del DeCA.
-              Si los dejas en blanco se usarán los colores de OPERPAL por defecto.
+              Si los dejas en blanco se usarán los colores por defecto.
             </p>
             <div className="flex flex-wrap gap-6">
               <div className="flex items-center gap-3">

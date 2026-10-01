@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GestiónDeCA",
-  description: "Gestión de Documentos Electrónicos de Control Administrativo — OPERPAL, Operador Logístico de Palma del Río, S.L.",
+  title: "Portal DeCA Digital",
+  description: "Gestión de Documentos Electrónicos de Control Administrativo (DeCA) y Órdenes de Carga.",
   icons: {
     icon: "/logo-operpal-icon.png",
   },

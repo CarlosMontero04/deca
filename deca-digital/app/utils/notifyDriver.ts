@@ -2,8 +2,8 @@
 // funcionado bien, no se toca. Email: en vez de depender del navegador
 // (mailto:, que fallaba si no había cliente de correo asociado), esto llama
 // a una ruta del propio servidor que envía el correo de verdad usando las
-// credenciales SMTP de OPERPAL. Ya no depende de nada del dispositivo de
-// quien lo pulsa.
+// credenciales SMTP configuradas para quien lo envía. Ya no depende de nada
+// del dispositivo de quien lo pulsa.
 //
 // IMPORTANTE: llamar a esta función SIEMPRE desde un manejador de clic directo
 // (onClick de un botón), nunca automáticamente después de un `await` (como tras
@@ -18,9 +18,10 @@ export async function notifyDriver(
   phone: string | undefined,
   email: string | undefined,
   message: string,
-  verificationUrl: string
+  verificationUrl: string,
+  orgName?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const fullMessage = `${message}\n\n${verificationUrl}\n\n— OPERPAL`;
+  const fullMessage = `${message}\n\n${verificationUrl}\n\n— ${orgName || 'DeCA Digital'}`;
 
   if (method === 'telefono') {
     if (!phone) return { success: false, error: 'No hay teléfono guardado.' };
@@ -58,7 +59,7 @@ export async function notifyDriver(
 // usas webmail). No hay forma de detectar eso desde código ni de forzar la
 // asociación, así que en vez de depender solo de mailto:, esto genera el
 // mensaje ya redactado para que la persona lo copie y lo pegue donde quiera.
-export function buildEmailFallback(email: string | undefined, message: string, verificationUrl: string) {
-  const fullMessage = `${message}\n\n${verificationUrl}\n\n— OPERPAL`;
+export function buildEmailFallback(email: string | undefined, message: string, verificationUrl: string, orgName?: string) {
+  const fullMessage = `${message}\n\n${verificationUrl}\n\n— ${orgName || 'DeCA Digital'}`;
   return `Para: ${email || '(sin email guardado)'}\nAsunto: Tu Documento de Control (DeCA)\n\n${fullMessage}`;
 }

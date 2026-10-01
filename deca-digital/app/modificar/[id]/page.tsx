@@ -8,11 +8,13 @@ import { generateDecaPdf } from '@/app/utils/pdfGenerator';
 import { loadOrgBranding } from '@/app/utils/loadOrgBranding';
 import { notifyDriver, NotificationMethod, buildEmailFallback } from '@/app/utils/notifyDriver';
 import SearchableSelect from '@/app/components/SearchableSelect';
+import { useOrgLogo } from '@/app/hooks/useOrgLogo';
 
 export default function ModificarDeca() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
+  const { orgName } = useOrgLogo();
 
   const [deca, setDeca] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -456,7 +458,7 @@ export default function ModificarDeca() {
                 setNotifyResult(null);
                 const result = await notifyDriver(updatedInfo.method, updatedInfo.phone, updatedInfo.email,
                   `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`,
-                  updatedInfo.verificationUrl);
+                  updatedInfo.verificationUrl, orgName);
                 setNotifySending(false);
                 setNotifyResult(result);
               }}
@@ -475,14 +477,14 @@ export default function ModificarDeca() {
                 <p className="text-xs text-slate-400 mb-1">Si el envío falla, copia este mensaje y pégalo donde quieras:</p>
                 <textarea
                   readOnly
-                  value={buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl)}
+                  value={buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl, orgName)}
                   rows={5}
                   className="w-full px-3 py-2 border rounded-lg text-xs text-slate-700 bg-slate-50 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl));
+                    navigator.clipboard.writeText(buildEmailFallback(updatedInfo.email, `Se ha actualizado tu Documento de Control (DeCA) ${updatedInfo.id} a la versión v${updatedInfo.version}.0. Motivo: ${updatedInfo.motivo}.`, updatedInfo.verificationUrl, orgName));
                     setCopiedMessage(true);
                     setTimeout(() => setCopiedMessage(false), 2000);
                   }}

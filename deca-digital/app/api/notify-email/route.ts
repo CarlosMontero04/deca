@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { createClient } from '@/app/utils/supabase/server';
 
-// Cada persona de OPERPAL tiene su propio correo, así que el mensaje debe
-// salir desde la cuenta de quien lo esté enviando, no siempre desde una
-// única cuenta compartida. Para saber quién es, identificamos al usuario
-// mediante su sesión (la cookie del servidor, no algo que el navegador
-// pueda falsear) y elegimos las credenciales SMTP que le correspondan según
-// las variables de entorno configuradas en Vercel.
+// Cada persona que envía desde la app tiene su propio correo, así que el
+// mensaje debe salir desde la cuenta de quien lo esté enviando, no siempre
+// desde una única cuenta compartida. Para saber quién es, identificamos al
+// usuario mediante su sesión (la cookie del servidor, no algo que el
+// navegador pueda falsear) y elegimos las credenciales SMTP que le
+// correspondan según las variables de entorno configuradas en Vercel.
 //
 // Variables de entorno necesarias, una tanda por persona (SMTP1_*, SMTP2_*...):
 //   SMTP1_LOGIN_EMAIL  → el email con el que esa persona inicia sesión en la app
@@ -74,6 +74,15 @@ export async function POST(req: NextRequest) {
       attachments = [{ filename: attachmentFilename || 'documento.pdf', content: buffer }];
     }
 
+    // El nombre que aparece como remitente es el de la organización de quien
+    // envía (el mismo que ya se usa en la cabecera de los PDFs), no uno fijo.
+    const { data: perfil } = await supabase
+      .from('company_profile')
+      .select('company_name')
+      .limit(1)
+      .maybeSingle();
+    const nombreRemitente = perfil?.company_name || 'DeCA Digital';
+
     const transporter = nodemailer.createTransport({
       host: credenciales.host,
       port: credenciales.port,
@@ -85,7 +94,7 @@ export async function POST(req: NextRequest) {
     });
 
     await transporter.sendMail({
-      from: `"OPERPAL" <${credenciales.from}>`,
+      from: `"${nombreRemitente}" <${credenciales.from}>`,
       to,
       // Copia oculta a la propia cuenta que envía — así queda constancia del
       // envío en tu bandeja de entrada, ya que el SMTP en bruto no guarda
