@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from './utils/supabase/client';
-import { LogOut, FileCheck, ClipboardList, Truck, ChevronRight, UserCircle } from 'lucide-react';
+import { LogOut, FileCheck, ClipboardList, Truck, ChevronRight, UserCircle, Users } from 'lucide-react';
 
 // Definición completa de todos los módulos posibles.
 // El menú solo muestra los que tiene contratados la organización del usuario.
@@ -46,6 +46,7 @@ export default function MenuPrincipal() {
   const [modulos, setModulos] = useState(TODOS_LOS_MODULOS);
   const [orgName, setOrgName] = useState('');
   const [orgLogoUrl, setOrgLogoUrl] = useState('');
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -57,8 +58,10 @@ export default function MenuPrincipal() {
       // y qué logo/nombre usar en la cabecera.
       const { data: membership } = await supabase
         .from('organization_members')
-        .select('org_id')
+        .select('org_id, role')
         .single();
+
+      setIsOrgAdmin(membership?.role === 'admin');
 
       if (membership?.org_id) {
         const { data: org } = await supabase
@@ -118,6 +121,11 @@ export default function MenuPrincipal() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-500 hidden sm:inline">{user.email}</span>
+          {isOrgAdmin && (
+            <button onClick={() => router.push('/equipo')} className="text-slate-400 hover:text-blue-600" title="Mi Equipo">
+              <Users className="w-5 h-5" />
+            </button>
+          )}
           <button onClick={() => router.push('/cuenta')} className="text-slate-400 hover:text-blue-600" title="Mi Cuenta">
             <UserCircle className="w-5 h-5" />
           </button>
