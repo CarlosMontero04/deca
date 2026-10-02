@@ -77,11 +77,16 @@ export default function MenuPrincipal() {
           setModulos(activos.length > 0 ? activos : TODOS_LOS_MODULOS);
         }
 
-        // Logo de la organización desde company_profile
+        // Logo de la organización desde company_profile. Puede haber varias
+        // fichas en la misma organización (una por administrador), así que
+        // se prioriza cualquiera que SÍ tenga logo subido, en vez de coger
+        // una al azar — así el logo es el mismo para todos los miembros.
         const { data: profile } = await supabase
           .from('company_profile')
           .select('logo_url')
-          .single();
+          .order('logo_url', { ascending: true, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
         if (profile?.logo_url) setOrgLogoUrl(profile.logo_url);
       }
 

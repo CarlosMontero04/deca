@@ -80,18 +80,14 @@ export default function FlotaPanel() {
     resizeEl(locationAddressRef.current);
   }, [locationForm.title, locationForm.address]);
 
-  const loadAll = async (_uid: string) => {
-    // Mi Empresa es un dato de la ORGANIZACIÓN, no de cada persona — se busca
-    // por org_id (una sola fila compartida por todos los miembros), no por
-    // quién ha iniciado sesión.
-    const orgId = await getOrgId(supabase);
+  const loadAll = async (uid: string) => {
     const [c, d, t, tr, loc, e, s] = await Promise.all([
       supabase.from('carriers').select('*').order('company_name'),
       supabase.from('drivers').select('*').order('name'),
       supabase.from('tractors').select('*').order('tractor_plate'),
       supabase.from('trailers').select('*').order('trailer_plate'),
       supabase.from('locations').select('*').order('title'),
-      supabase.from('company_profile').select('*').eq('org_id', orgId).maybeSingle(),
+      supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
       supabase.from('alternative_shippers').select('*').order('company_name'),
     ]);
     setCarriers(c.data || []);
@@ -164,7 +160,7 @@ export default function FlotaPanel() {
       logo_width_px: companyForm.logo_width_px || null,
       logo_height_px: companyForm.logo_height_px || null,
       updated_at: new Date().toISOString()
-    }, { onConflict: 'org_id' });
+    });
     setCompanySaved(true);
     setTimeout(() => setCompanySaved(false), 3000);
     showToast('✓ Datos de empresa guardados');

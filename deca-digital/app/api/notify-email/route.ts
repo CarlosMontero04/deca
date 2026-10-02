@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     const { data: perfil } = await supabase
       .from('company_profile')
       .select('company_name')
-      .limit(1)
+      .eq('user_id', user.id)
       .maybeSingle();
     const nombreRemitente = perfil?.company_name || 'DeCA Digital';
 

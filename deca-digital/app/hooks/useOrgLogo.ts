@@ -21,6 +21,11 @@ export function useOrgLogo() {
     supabase
       .from('company_profile')
       .select('logo_url, company_name')
+      // Puede haber varias fichas de empresa en la misma organización (una
+      // por cada administrador). Para que el logo del menú sea el mismo
+      // para todos, se prioriza cualquier ficha que SÍ tenga logo subido en
+      // vez de coger una al azar.
+      .order('logo_url', { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
