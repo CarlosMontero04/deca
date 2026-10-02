@@ -13,6 +13,7 @@ export default function MiCuenta() {
 
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
 
   // --- Nombre ---
   const [fullName, setFullName] = useState('');
@@ -52,6 +53,12 @@ export default function MiCuenta() {
       setUser(session.user);
       setFullName(session.user.user_metadata?.full_name || '');
       setNewEmail(session.user.email || '');
+
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('role')
+        .single();
+      setIsOrgAdmin(membership?.role === 'admin');
 
       // Cargar perfil de empresa del usuario actual
       const { data: profile } = await supabase
@@ -337,9 +344,17 @@ export default function MiCuenta() {
               <Building2 className="w-4 h-4 text-blue-600" /> Perfil de Empresa
             </h3>
             <p className="text-xs text-slate-500 mt-1.5">
-              Estos datos aparecen en la cabecera de los PDFs generados (DeCA). Si los dejas en blanco, se usará el logo por defecto.
+              Estos datos aparecen en la cabecera de los PDFs generados (DeCA, órdenes de carga). Si los dejas en blanco, se usará el logo por defecto.
             </p>
           </div>
+
+          {!isOrgAdmin && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Solo los administradores de la organización pueden modificar el perfil de empresa.
+            </p>
+          )}
+
+          <fieldset disabled={!isOrgAdmin} className="contents border-0 m-0 p-0">
 
           {/* Logo */}
           <div>
@@ -377,7 +392,7 @@ export default function MiCuenta() {
                 <label
                   htmlFor="logo-upload"
                   className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-semibold transition
-                    ${logoUploading ? 'opacity-50 cursor-not-allowed' : 'border-blue-300 text-blue-700 hover:bg-blue-50'}`}
+                    ${(logoUploading || !isOrgAdmin) ? 'opacity-50 cursor-not-allowed' : 'border-blue-300 text-blue-700 hover:bg-blue-50'}`}
                 >
                   <ImagePlus className="w-4 h-4" />
                   {logoUploading ? 'Subiendo...' : logoPreview ? 'Cambiar logo' : 'Subir logo'}
@@ -496,21 +511,25 @@ export default function MiCuenta() {
             </div>
           </div>
 
+          </fieldset>
+
           {companyError && (
             <p className="text-sm font-semibold text-rose-600">✗ {companyError}</p>
           )}
 
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              type="submit"
-              disabled={companySaving || logoUploading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {companySaving ? 'Guardando...' : 'Guardar Perfil de Empresa'}
-            </button>
-            {companySaved && <span className="text-sm text-emerald-600 font-semibold">✓ Guardado</span>}
-          </div>
+          {isOrgAdmin && (
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="submit"
+                disabled={companySaving || logoUploading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {companySaving ? 'Guardando...' : 'Guardar Perfil de Empresa'}
+              </button>
+              {companySaved && <span className="text-sm text-emerald-600 font-semibold">✓ Guardado</span>}
+            </div>
+          )}
         </form>
 
       </div>
