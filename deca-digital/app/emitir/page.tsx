@@ -145,6 +145,7 @@ export default function EmitirDeca() {
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
   const [savedShippers, setSavedShippers] = useState<any[]>([]);
+  const [savedLocations, setSavedLocations] = useState<any[]>([]);
   const [selectedShipperId, setSelectedShipperId] = useState('');
   // Datos de tu propia empresa (company_profile) — el Cargador Contractual
   // por defecto. Se guardan aparte para poder volver a ellos si el usuario
@@ -175,19 +176,21 @@ export default function EmitirDeca() {
         .single();
       setIsOrgAdmin(membership?.role === 'admin');
 
-      const [c, d, t, tr, company, s] = await Promise.all([
+      const [c, d, t, tr, company, s, loc] = await Promise.all([
         supabase.from('carriers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('tractors').select('*').order('tractor_plate'),
         supabase.from('trailers').select('*').order('trailer_plate'),
         supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
         supabase.from('alternative_shippers').select('*').order('company_name'),
+        supabase.from('locations').select('*').order('title'),
       ]);
       setSavedCarriers(c.data || []);
       setSavedDrivers(d.data || []);
       setSavedTractors(t.data || []);
       setSavedTrailers(tr.data || []);
       setSavedShippers(s.data || []);
+      setSavedLocations(loc.data || []);
       // Tu empresa es el Cargador Contractual por defecto (art. 4 Orden
       // FOM/2861/2012): se precarga sola, pero sigue siendo editable, y se
       // puede sustituir por otro cargador guardado en Flota si hace falta.
@@ -275,6 +278,31 @@ export default function EmitirDeca() {
     if (t) {
       setTrailerPlate2(t.trailer_plate);
     }
+  };
+
+  const handleSelectOrigenLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (l) setOrigin(l.address);
+  };
+
+  const handleSelectDestinoLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (l) setDestination(l.address);
+  };
+
+  // Las Paradas Intermedias se guardan una por línea (se parten por '\n' al
+  // emitir), así que cada ubicación añadida tiene que quedar en una sola
+  // línea — si su dirección guardada tiene saltos de línea propios, se
+  // aplanan aquí para que no se cuele como dos paradas sueltas.
+  const handleAddStopLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (!l) return;
+    const direccionUnaLinea = (l.address || '').replace(/\s*\n+\s*/g, ' ').trim();
+    if (!direccionUnaLinea) return;
+    setStopsText(prev => {
+      const actual = prev.replace(/\n+$/, '');
+      return actual ? `${actual}\n${direccionUnaLinea}` : direccionUnaLinea;
+    });
   };
 
   const flashFleetMessage = (msg: string) => {
@@ -831,6 +859,30 @@ export default function EmitirDeca() {
           {/* BLOQUE C: Origen y Destino */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
             <h3 className="font-bold text-slate-800 border-b pb-2">C. Lugar de Origen y Destino del Envío</h3>
+
+            {savedLocations.length > 0 && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar origen desde ubicación guardada</label>
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectOrigenLocation}
+                    options={savedLocations.map(l => ({ value: l.id, label: l.title }))}
+                    placeholder="-- Escribir a mano --"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-blue-800 mb-1">Rellenar destino desde ubicación guardada</label>
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectDestinoLocation}
+                    options={savedLocations.map(l => ({ value: l.id, label: l.title }))}
+                    placeholder="-- Escribir a mano --"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Origen</label>
@@ -842,6 +894,17 @@ export default function EmitirDeca() {
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Paradas Intermedias (opcional, una por línea)</label>
+                {savedLocations.length > 0 && (
+                  <div className="mb-2 bg-blue-50 border border-blue-100 rounded-xl p-3">
+                    <label className="block text-xs font-semibold text-blue-800 mb-1">Añadir parada desde ubicación guardada</label>
+                    <SearchableSelect
+                      value=""
+                      onChange={handleAddStopLocation}
+                      options={savedLocations.map(l => ({ value: l.id, label: l.title }))}
+                      placeholder="-- Elegir ubicación a añadir --"
+                    />
+                  </div>
+                )}
                 <textarea ref={stopsTextRef} value={stopsText} onChange={e => { setStopsText(e.target.value); autoResize(e); }} rows={2} placeholder={"Ej.\nÁrea de servicio Despeñaperros\nAlmacén de tránsito Bailén"} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 placeholder:text-slate-400 resize-none overflow-hidden" />
               </div>
             </div>
