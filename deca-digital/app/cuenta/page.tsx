@@ -60,12 +60,20 @@ export default function MiCuenta() {
         .single();
       setIsOrgAdmin(membership?.role === 'admin');
 
-      // Cargar perfil de empresa del usuario actual
-      const { data: profile } = await supabase
-        .from('company_profile')
-        .select('company_name, cif, address, phone, email, logo_url, primary_color, accent_color')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
+      // El perfil de empresa es de la ORGANIZACIÓN (una sola fila compartida
+      // por todos los miembros), no de cada usuario — se busca por org_id.
+      let profileOrgId: string | null = null;
+      try {
+        profileOrgId = await getOrgId(supabase);
+      } catch { /* si no se puede determinar, sencillamente no se precarga el perfil */ }
+
+      const { data: profile } = profileOrgId
+        ? await supabase
+            .from('company_profile')
+            .select('company_name, cif, address, phone, email, logo_url, primary_color, accent_color')
+            .eq('org_id', profileOrgId)
+            .maybeSingle()
+        : { data: null };
 
       if (profile) {
         setCompanyName(profile.company_name || '');
@@ -243,7 +251,7 @@ export default function MiCuenta() {
         primary_color: primaryColor,
         accent_color: accentColor,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+      }, { onConflict: 'org_id' });
 
     setCompanySaving(false);
     if (error) {

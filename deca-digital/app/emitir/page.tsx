@@ -168,7 +168,6 @@ export default function EmitirDeca() {
     const loadFleet = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const uid = session.user.id;
 
       const { data: membership } = await supabase
         .from('organization_members')
@@ -176,12 +175,19 @@ export default function EmitirDeca() {
         .single();
       setIsOrgAdmin(membership?.role === 'admin');
 
+      // El perfil de empresa es de la ORGANIZACIÓN (una sola fila compartida
+      // por todos los miembros), no de quién ha iniciado sesión — se busca
+      // por org_id.
+      const orgIdForCompany = await getOrgId(supabase).catch(() => null);
+
       const [c, d, t, tr, company, s, loc] = await Promise.all([
         supabase.from('carriers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('tractors').select('*').order('tractor_plate'),
         supabase.from('trailers').select('*').order('trailer_plate'),
-        supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
+        orgIdForCompany
+          ? supabase.from('company_profile').select('*').eq('org_id', orgIdForCompany).maybeSingle()
+          : Promise.resolve({ data: null }),
         supabase.from('alternative_shippers').select('*').order('company_name'),
         supabase.from('locations').select('*').order('title'),
       ]);
