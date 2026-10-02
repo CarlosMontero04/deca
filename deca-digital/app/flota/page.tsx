@@ -332,6 +332,7 @@ export default function FlotaPanel() {
   // --- Exportar toda la flota a un Excel (una hoja por categoría) ---
   const [exportingExcel, setExportingExcel] = useState(false);
   const exportToExcel = async () => {
+    if (!isOrgAdmin) return;
     setExportingExcel(true);
     try {
       const sheets: FleetSheet[] = [
@@ -463,15 +464,17 @@ export default function FlotaPanel() {
             <h2 className="text-2xl font-bold text-slate-800">Gestión de Flota</h2>
             <p className="text-sm text-slate-500">Guarda tus transportistas, conductores, tractoras y remolques habituales para rellenar los DeCA y Órdenes de Carga más rápido.</p>
           </div>
-          <button
-            type="button"
-            onClick={exportToExcel}
-            disabled={exportingExcel}
-            className="shrink-0 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"
-            title="Descarga toda la flota en un archivo Excel, con una hoja por categoría"
-          >
-            <FileSpreadsheet className="w-4 h-4" /> {exportingExcel ? 'Generando...' : 'Exportar a Excel'}
-          </button>
+          {isOrgAdmin && (
+            <button
+              type="button"
+              onClick={exportToExcel}
+              disabled={exportingExcel}
+              className="shrink-0 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"
+              title="Descarga toda la flota en un archivo Excel, con una hoja por categoría"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> {exportingExcel ? 'Generando...' : 'Exportar a Excel'}
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

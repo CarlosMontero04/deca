@@ -8,6 +8,7 @@ import { generateSecureId } from '../../utils/generateDecaId';
 import { notifyCarrierOrden } from '../../utils/notifyCarrierOrden';
 import SearchableSelect from '../../components/SearchableSelect';
 import { getOrgId } from '../../utils/getOrgId';
+import { savePdfAs } from '../../utils/savePdfAs';
 import { ArrowLeft, FileText, Save } from 'lucide-react';
 
 export default function NuevaOrdenCarga() {
@@ -20,6 +21,7 @@ export default function NuevaOrdenCarga() {
   const [createdPdfPath, setCreatedPdfPath] = useState('');
   const [notifySending, setNotifySending] = useState<'telefono' | 'email' | null>(null);
   const [notifyResult, setNotifyResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [savingAs, setSavingAs] = useState(false);
 
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [carrierName, setCarrierName] = useState('');
@@ -227,23 +229,6 @@ export default function NuevaOrdenCarga() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!createdId) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) return;
-    const { data, error } = await supabase.storage.from('ordenes-carga-pdf').download(`${userId}/${createdId}.pdf`);
-    if (error || !data) return;
-    const url = URL.createObjectURL(data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${createdId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
   const handlePreview = async () => {
     if (!createdId) return;
     const { data: { session } } = await supabase.auth.getSession();
@@ -327,10 +312,26 @@ export default function NuevaOrdenCarga() {
             </button>
             <button
               type="button"
-              onClick={handleDownload}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition"
+              disabled={savingAs}
+              onClick={async () => {
+                setSavingAs(true);
+                const result = await savePdfAs(
+                  async () => {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const userId = session?.user?.id;
+                    if (!userId) throw new Error('No hay sesión activa.');
+                    const { data, error } = await supabase.storage.from('ordenes-carga-pdf').download(`${userId}/${createdId}.pdf`);
+                    if (error || !data) throw new Error('No se pudo descargar el PDF.');
+                    return data;
+                  },
+                  `${createdId}.pdf`
+                );
+                setSavingAs(false);
+                if (!result.success && !result.cancelled) alert(result.error || 'No se pudo guardar el PDF.');
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition disabled:opacity-50"
             >
-              Descargar PDF
+              {savingAs ? 'Guardando...' : 'Guardar como...'}
             </button>
             <button
               type="button"
