@@ -197,14 +197,41 @@ export default function EmitirDeca() {
       // Tu empresa es el Cargador Contractual por defecto (art. 4 Orden
       // FOM/2861/2012): se precarga sola, pero sigue siendo editable, y se
       // puede sustituir por otro cargador guardado en Flota si hace falta.
-      if (company.data) {
-        const datosEmpresa = {
-          company_name: company.data.company_name || '',
-          cif: company.data.cif || '',
-          address: company.data.address || '',
-          phone: company.data.phone || '',
-          email: company.data.email || '',
-        };
+      // Nombre/CIF/dirección/teléfono/email son datos de identidad de la
+      // empresa: si tu propia ficha no tiene alguno rellenado, se completa
+      // (campo a campo) con el de cualquier otro miembro de tu organización
+      // que sí lo tenga (igual que ya pasa con el logo).
+      let companyName = company.data?.company_name || '';
+      let cif = company.data?.cif || '';
+      let address = company.data?.address || '';
+      let phone = company.data?.phone || '';
+      let email = company.data?.email || '';
+
+      if (!companyName || !phone || !email) {
+        try {
+          const orgId = await getOrgId(supabase);
+          const { data: otraFicha } = await supabase
+            .from('company_profile')
+            .select('company_name, cif, address, phone, email')
+            .eq('org_id', orgId)
+            .order('company_name', { ascending: true, nullsFirst: false })
+            .limit(1)
+            .maybeSingle();
+          if (!companyName && otraFicha?.company_name) {
+            companyName = otraFicha.company_name;
+            cif = otraFicha.cif || '';
+            address = otraFicha.address || '';
+          }
+          if (!phone && otraFicha?.phone) phone = otraFicha.phone;
+          if (!email && otraFicha?.email) email = otraFicha.email;
+        } catch {
+          // Si no se puede determinar la organización, seguimos sin datos
+          // de empresa precargados — el usuario puede rellenarlos a mano.
+        }
+      }
+
+      if (companyName || phone || email) {
+        const datosEmpresa = { company_name: companyName, cif, address, phone, email };
         setDefaultShipper(datosEmpresa);
         setShipperName(datosEmpresa.company_name);
         setShipperCif(datosEmpresa.cif);

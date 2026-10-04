@@ -2,19 +2,20 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { OrgBranding } from './pdfGenerator';
 
 /**
- * Carga los datos de marca para el PDF: nombre, CIF, dirección, teléfono y
- * email son los de la ficha del propio usuario que está generando el
- * documento (cada administrador puede tener los suyos). El logo es la
- * excepción: si este usuario no ha subido uno, se usa el de cualquier otro
- * administrador de su misma organización que sí lo tenga, para que el PDF
- * nunca se quede sin el logo de la empresa por ese motivo.
+ * Carga los datos de marca para el PDF: nombre, CIF, dirección, teléfono,
+ * email y logo son datos de identidad de la empresa. Si la ficha de este
+ * usuario no tiene alguno de ellos, se completa con el de cualquier otro
+ * miembro de su misma organización que sí lo tenga, para que el PDF nunca
+ * pierda la identidad real de la empresa por ese motivo (por ejemplo, un
+ * miembro que nunca ha rellenado su propia ficha).
  *
  * El logo se guarda como URL pública en Storage. Lo descargamos aquí y lo
  * convertimos a base64 para que jsPDF pueda incrustarlo en el PDF sin
  * hacer peticiones externas desde el generador.
  *
- * Si el usuario no tiene perfil de empresa, devuelve undefined — el
- * generador usará los valores por defecto de OPERPAL.
+ * Si ni este usuario ni ningún otro miembro de su organización tiene nombre
+ * de empresa, devuelve undefined — el generador usará los valores por
+ * defecto de OPERPAL como último recurso.
  */
 export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBranding | undefined> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -26,14 +27,40 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!data?.company_name) return undefined;
+  // Nombre, CIF, dirección, teléfono y email: si la ficha propia no tiene
+  // alguno de ellos, se completa (campo a campo) con el de cualquier otro
+  // miembro de la misma organización que sí lo tenga.
+  let companyName = data?.company_name;
+  let cif = data?.cif;
+  let address = data?.address;
+  let phone = data?.phone;
+  let email = data?.email;
+
+  if ((!companyName || !phone || !email) && data?.org_id) {
+    const { data: otraFichaDatos } = await supabase
+      .from('company_profile')
+      .select('company_name, cif, address, phone, email')
+      .eq('org_id', data.org_id)
+      .order('company_name', { ascending: true, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (!companyName && otraFichaDatos?.company_name) {
+      companyName = otraFichaDatos.company_name;
+      cif = otraFichaDatos.cif;
+      address = otraFichaDatos.address;
+    }
+    if (!phone && otraFichaDatos?.phone) phone = otraFichaDatos.phone;
+    if (!email && otraFichaDatos?.email) email = otraFichaDatos.email;
+  }
+
+  if (!companyName) return undefined;
 
   // Si este usuario no tiene logo propio, usamos el de cualquier otro
-  // administrador de la misma organización que sí lo tenga.
-  let logoUrl = data.logo_url;
-  let logoWidthPxFallback = data.logo_width_px;
-  let logoHeightPxFallback = data.logo_height_px;
-  if (!logoUrl && data.org_id) {
+  // miembro de la misma organización que sí lo tenga.
+  let logoUrl = data?.logo_url;
+  let logoWidthPxFallback = data?.logo_width_px;
+  let logoHeightPxFallback = data?.logo_height_px;
+  if (!logoUrl && data?.org_id) {
     const { data: otraFicha } = await supabase
       .from('company_profile')
       .select('logo_url, logo_width_px, logo_height_px')
@@ -82,16 +109,16 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
   }
 
   return {
-    companyName:   data.company_name,
-    cif:           data.cif           ?? undefined,
-    address:       data.address       ?? undefined,
-    phone:         data.phone         ?? undefined,
-    email:         data.email         ?? undefined,
+    companyName,
+    cif:           cif    ?? undefined,
+    address:       address ?? undefined,
+    phone:         phone ?? undefined,
+    email:         email ?? undefined,
     logoBase64,
     logoFormat,
     logoWidthPx,
     logoHeightPx,
-    primaryColor:  data.primary_color ?? undefined,
-    accentColor:   data.accent_color  ?? undefined,
+    primaryColor:  data?.primary_color ?? undefined,
+    accentColor:   data?.accent_color  ?? undefined,
   };
 }
