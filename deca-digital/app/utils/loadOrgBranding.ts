@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { OrgBranding } from './pdfGenerator';
+import { getOrgId } from './getOrgId';
 
 /**
  * Carga los datos de marca para el PDF: nombre, CIF, dirección, teléfono,
@@ -27,9 +28,25 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     .eq('user_id', user.id)
     .maybeSingle();
 
+  // El org_id de la propia ficha solo existe si esa ficha existe. Un
+  // miembro que nunca ha tenido fila en company_profile (el caso más
+  // habitual) no tiene esa ficha en absoluto, así que para saber su
+  // organización — y poder buscar los datos de otro miembro — hay que
+  // consultarlo aparte, en organization_members, que sí tiene una fila
+  // para todo el mundo.
+  let orgId = data?.org_id ?? undefined;
+  if (!orgId) {
+    try {
+      orgId = await getOrgId(supabase);
+    } catch {
+      orgId = undefined;
+    }
+  }
+
   // Nombre, CIF, dirección, teléfono, email y colores corporativos: si la
-  // ficha propia no tiene alguno de ellos, se completa (campo a campo) con
-  // el de cualquier otro miembro de la misma organización que sí lo tenga.
+  // ficha propia no tiene alguno de ellos (o no existe), se completa
+  // (campo a campo) con el de cualquier otro miembro de la misma
+  // organización que sí lo tenga.
   let companyName = data?.company_name;
   let cif = data?.cif;
   let address = data?.address;
@@ -38,11 +55,11 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
   let primaryColor = data?.primary_color;
   let accentColor = data?.accent_color;
 
-  if ((!companyName || !phone || !email || !primaryColor || !accentColor) && data?.org_id) {
+  if ((!companyName || !phone || !email || !primaryColor || !accentColor) && orgId) {
     const { data: otraFichaDatos } = await supabase
       .from('company_profile')
       .select('company_name, cif, address, phone, email, primary_color, accent_color')
-      .eq('org_id', data.org_id)
+      .eq('org_id', orgId)
       .order('company_name', { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle();
@@ -59,16 +76,16 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
 
   if (!companyName) return undefined;
 
-  // Si este usuario no tiene logo propio, usamos el de cualquier otro
-  // miembro de la misma organización que sí lo tenga.
+  // Si este usuario no tiene logo propio (o no tiene ficha), usamos el de
+  // cualquier otro miembro de la misma organización que sí lo tenga.
   let logoUrl = data?.logo_url;
   let logoWidthPxFallback = data?.logo_width_px;
   let logoHeightPxFallback = data?.logo_height_px;
-  if (!logoUrl && data?.org_id) {
+  if (!logoUrl && orgId) {
     const { data: otraFicha } = await supabase
       .from('company_profile')
       .select('logo_url, logo_width_px, logo_height_px')
-      .eq('org_id', data.org_id)
+      .eq('org_id', orgId)
       .order('logo_url', { ascending: true, nullsFirst: false })
       .limit(1)
       .maybeSingle();
