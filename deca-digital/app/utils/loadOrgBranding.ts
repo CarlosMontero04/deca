@@ -3,11 +3,11 @@ import { OrgBranding } from './pdfGenerator';
 
 /**
  * Carga los datos de marca para el PDF: nombre, CIF, dirección, teléfono,
- * email y logo son datos de identidad de la empresa. Si la ficha de este
- * usuario no tiene alguno de ellos, se completa con el de cualquier otro
- * miembro de su misma organización que sí lo tenga, para que el PDF nunca
- * pierda la identidad real de la empresa por ese motivo (por ejemplo, un
- * miembro que nunca ha rellenado su propia ficha).
+ * email, colores corporativos y logo son datos de identidad de la empresa.
+ * Si la ficha de este usuario no tiene alguno de ellos, se completa con el
+ * de cualquier otro miembro de su misma organización que sí lo tenga, para
+ * que el PDF nunca pierda la identidad real de la empresa por ese motivo
+ * (por ejemplo, un miembro que nunca ha rellenado su propia ficha).
  *
  * El logo se guarda como URL pública en Storage. Lo descargamos aquí y lo
  * convertimos a base64 para que jsPDF pueda incrustarlo en el PDF sin
@@ -27,19 +27,21 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     .eq('user_id', user.id)
     .maybeSingle();
 
-  // Nombre, CIF, dirección, teléfono y email: si la ficha propia no tiene
-  // alguno de ellos, se completa (campo a campo) con el de cualquier otro
-  // miembro de la misma organización que sí lo tenga.
+  // Nombre, CIF, dirección, teléfono, email y colores corporativos: si la
+  // ficha propia no tiene alguno de ellos, se completa (campo a campo) con
+  // el de cualquier otro miembro de la misma organización que sí lo tenga.
   let companyName = data?.company_name;
   let cif = data?.cif;
   let address = data?.address;
   let phone = data?.phone;
   let email = data?.email;
+  let primaryColor = data?.primary_color;
+  let accentColor = data?.accent_color;
 
-  if ((!companyName || !phone || !email) && data?.org_id) {
+  if ((!companyName || !phone || !email || !primaryColor || !accentColor) && data?.org_id) {
     const { data: otraFichaDatos } = await supabase
       .from('company_profile')
-      .select('company_name, cif, address, phone, email')
+      .select('company_name, cif, address, phone, email, primary_color, accent_color')
       .eq('org_id', data.org_id)
       .order('company_name', { ascending: true, nullsFirst: false })
       .limit(1)
@@ -51,6 +53,8 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     }
     if (!phone && otraFichaDatos?.phone) phone = otraFichaDatos.phone;
     if (!email && otraFichaDatos?.email) email = otraFichaDatos.email;
+    if (!primaryColor && otraFichaDatos?.primary_color) primaryColor = otraFichaDatos.primary_color;
+    if (!accentColor && otraFichaDatos?.accent_color) accentColor = otraFichaDatos.accent_color;
   }
 
   if (!companyName) return undefined;
@@ -118,7 +122,7 @@ export async function loadOrgBranding(supabase: SupabaseClient): Promise<OrgBran
     logoFormat,
     logoWidthPx,
     logoHeightPx,
-    primaryColor:  data?.primary_color ?? undefined,
-    accentColor:   data?.accent_color  ?? undefined,
+    primaryColor:  primaryColor ?? undefined,
+    accentColor:   accentColor  ?? undefined,
   };
 }
