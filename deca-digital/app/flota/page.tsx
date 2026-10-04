@@ -9,7 +9,7 @@ import { getOrgId } from '../utils/getOrgId';
 import { useOrgLogo } from '../hooks/useOrgLogo';
 import { downloadFleetExcel, type FleetSheet } from '../utils/exportFleetToExcel';
 
-type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones' | 'cargadores';
+type Tab = 'empresa' | 'transportistas' | 'conductores' | 'tractoras' | 'remolques' | 'ubicaciones' | 'mercancias' | 'cargadores';
 
 export default function FlotaPanel() {
   const { logoUrl: orgLogoUrl, orgName } = useOrgLogo();
@@ -33,6 +33,7 @@ export default function FlotaPanel() {
   const [trailers, setTrailers] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [shippers, setShippers] = useState<any[]>([]);
+  const [goods, setGoods] = useState<any[]>([]);
 
   // Formulario de Mi Empresa (Cargador Contractual — la tuya en todos los DeCA)
   const [companyForm, setCompanyForm] = useState({ company_name: '', cif: '', address: '', phone: '', email: '', logo_url: '', logo_width_px: 0, logo_height_px: 0 });
@@ -57,6 +58,8 @@ export default function FlotaPanel() {
   // Formulario de Cargador Contractual alternativo (empresas distintas de la
   // tuya que a veces también actúan como Cargador Contractual en el Bloque A)
   const [shipperForm, setShipperForm] = useState({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
+  // Formulario de Mercancía (descripción guardada para el desplegable del DeCA)
+  const [goodsForm, setGoodsForm] = useState({ id: '', description: '' });
 
   // Hace que una caja de texto crezca sola según el contenido, en vez de
   // quedarse con una altura fija y barra de scroll — igual que en Órdenes de Carga.
@@ -80,8 +83,13 @@ export default function FlotaPanel() {
     resizeEl(locationAddressRef.current);
   }, [locationForm.title, locationForm.address]);
 
+  const goodsDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    resizeEl(goodsDescriptionRef.current);
+  }, [goodsForm.description]);
+
   const loadAll = async (uid: string) => {
-    const [c, d, t, tr, loc, e, s] = await Promise.all([
+    const [c, d, t, tr, loc, e, s, g] = await Promise.all([
       supabase.from('carriers').select('*').order('company_name'),
       supabase.from('drivers').select('*').order('name'),
       supabase.from('tractors').select('*').order('tractor_plate'),
@@ -89,6 +97,7 @@ export default function FlotaPanel() {
       supabase.from('locations').select('*').order('title'),
       supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
       supabase.from('alternative_shippers').select('*').order('company_name'),
+      supabase.from('goods').select('*').order('description'),
     ]);
     setCarriers(c.data || []);
     setDrivers(d.data || []);
@@ -96,6 +105,7 @@ export default function FlotaPanel() {
     setTrailers(tr.data || []);
     setLocations(loc.data || []);
     setShippers(s.data || []);
+    setGoods(g.data || []);
     if (e.data) {
       setCompanyForm({
         company_name: e.data.company_name || '',
@@ -141,6 +151,7 @@ export default function FlotaPanel() {
     setTrailerForm({ id: '', trailer_plate: '', carrier_id: '', internal_title: '' });
     setLocationForm({ id: '', title: '', address: '' });
     setShipperForm({ id: '', company_name: '', cif: '', address: '', phone: '', email: '' });
+    setGoodsForm({ id: '', description: '' });
   };
 
   // --- Mi Empresa (Cargador Contractual fijo) ---
@@ -327,6 +338,31 @@ export default function FlotaPanel() {
     if (userId) await loadAll(userId);
   };
 
+  // --- Mercancías (descripciones guardadas para el desplegable del DeCA) ---
+  const saveGoods = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userId) return;
+    const orgId = await getOrgId(supabase);
+    const payload = { description: goodsForm.description, user_id: userId, org_id: orgId };
+    const { error } = goodsForm.id
+      ? await supabase.from('goods').update(payload).eq('id', goodsForm.id)
+      : await supabase.from('goods').insert([payload]);
+    if (error) { showToast(`✗ Error al guardar mercancía: ${error.message}`); return; }
+    showToast('✓ Mercancía guardada');
+    resetForms();
+    await loadAll(userId);
+  };
+
+  const editGoods = (g: any) => setGoodsForm({ id: g.id, description: g.description });
+
+  const deleteGoods = async (id: string) => {
+    if (!confirm('¿Eliminar esta mercancía?')) return;
+    const { error } = await supabase.from('goods').delete().eq('id', id);
+    if (error) { showToast(`✗ Error al eliminar mercancía: ${error.message}`); return; }
+    showToast('✓ Mercancía eliminada');
+    if (userId) await loadAll(userId);
+  };
+
   const carrierName = (carrierId: string | null) => carriers.find(c => c.id === carrierId)?.company_name || '—';
 
   // --- Exportar toda la flota a un Excel (una hoja por categoría) ---
@@ -415,6 +451,7 @@ export default function FlotaPanel() {
   const filteredTrailers = trailers.filter(t => !q || t.trailer_plate?.toLowerCase().includes(q));
   const filteredLocations = locations.filter(l => !q || l.title?.toLowerCase().includes(q) || l.address?.toLowerCase().includes(q));
   const filteredShippers = shippers.filter(s => !q || s.company_name?.toLowerCase().includes(q) || s.cif?.toLowerCase().includes(q));
+  const filteredGoods = goods.filter(g => !q || g.description?.toLowerCase().includes(q));
 
   if (loading) {
     return (
@@ -479,13 +516,13 @@ export default function FlotaPanel() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex gap-2 flex-wrap">
-            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques', 'ubicaciones', 'cargadores'] as Tab[]).map(t => (
+            {(['empresa', 'transportistas', 'conductores', 'tractoras', 'remolques', 'ubicaciones', 'mercancias', 'cargadores'] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => { setTab(t); resetForms(); setSearch(''); }}
                 className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
               >
-                {t === 'empresa' ? 'Mi Empresa' : t === 'cargadores' ? 'Otros Cargadores' : t}
+                {t === 'empresa' ? 'Mi Empresa' : t === 'cargadores' ? 'Otros Cargadores' : t === 'mercancias' ? 'Mercancías' : t}
               </button>
             ))}
           </div>
@@ -494,7 +531,7 @@ export default function FlotaPanel() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={tab === 'transportistas' || tab === 'cargadores' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : 'Buscar por matrícula...'}
+              placeholder={tab === 'transportistas' || tab === 'cargadores' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : tab === 'mercancias' ? 'Buscar por descripción...' : 'Buscar por matrícula...'}
               className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
             />
           )}
@@ -862,6 +899,43 @@ export default function FlotaPanel() {
                     </tr>
                   ))}
                   {filteredLocations.length === 0 && <tr><td colSpan={isOrgAdmin ? 3 : 2} className="p-6 text-center text-slate-400">{locations.length === 0 ? 'Sin ubicaciones guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* MERCANCÍAS */}
+        {tab === 'mercancias' && (
+          <div className="space-y-6">
+            {isOrgAdmin && (
+            <form onSubmit={saveGoods} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">{goodsForm.id ? 'Editar' : 'Nueva'} Mercancía</h3>
+              <p className="text-xs text-slate-500">Guarda una descripción de mercancía habitual para poder elegirla al rellenar la Naturaleza de la Mercancía en un DeCA.</p>
+              <textarea ref={goodsDescriptionRef} required placeholder="Descripción (ej. Cítricos a granel)" value={goodsForm.description} onChange={e => { setGoodsForm({ ...goodsForm, description: e.target.value }); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
+              <div className="flex gap-2">
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> {goodsForm.id ? 'Guardar Cambios' : 'Añadir'}</button>
+                {goodsForm.id && <button type="button" onClick={resetForms} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5"><X className="w-4 h-4" /> Cancelar</button>}
+              </div>
+            </form>
+            )}
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold"><tr><th className="p-3">Descripción</th>{isOrgAdmin && <th className="p-3 text-right">Acciones</th>}</tr></thead>
+                <tbody className="divide-y divide-slate-100 text-slate-900">
+                  {filteredGoods.map(g => (
+                    <tr key={g.id}>
+                      <td className="p-3 font-semibold">{g.description}</td>
+                      {isOrgAdmin && (
+                        <td className="p-3 text-right flex justify-end gap-2">
+                          <button onClick={() => editGoods(g)} className="text-amber-600 hover:text-amber-700"><Pencil className="w-4 h-4" /></button>
+                          <button onClick={() => deleteGoods(g.id)} className="text-rose-600 hover:text-rose-700"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  {filteredGoods.length === 0 && <tr><td colSpan={isOrgAdmin ? 2 : 1} className="p-6 text-center text-slate-400">{goods.length === 0 ? 'Sin mercancías guardadas' : 'Sin resultados para esa búsqueda'}</td></tr>}
                 </tbody>
               </table>
             </div>

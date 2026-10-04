@@ -57,6 +57,7 @@ export default function ModificarDeca() {
   const [savedDrivers, setSavedDrivers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
+  const [savedGoods, setSavedGoods] = useState<any[]>([]);
 
   // Hace que una caja de texto crezca sola según el contenido, en vez de
   // quedarse con una altura fija y barra de scroll — igual que en Órdenes de Carga.
@@ -152,16 +153,18 @@ export default function ModificarDeca() {
     };
 
     const loadFleet = async () => {
-      const [c, d, t, tr] = await Promise.all([
+      const [c, d, t, tr, gds] = await Promise.all([
         supabase.from('carriers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('tractors').select('*').order('tractor_plate'),
         supabase.from('trailers').select('*').order('trailer_plate'),
+        supabase.from('goods').select('*').order('description'),
       ]);
       setSavedCarriers(c.data || []);
       setSavedDrivers(d.data || []);
       setSavedTractors(t.data || []);
       setSavedTrailers(tr.data || []);
+      setSavedGoods(gds.data || []);
     };
 
     fetchDeca();
@@ -203,6 +206,11 @@ export default function ModificarDeca() {
   const handleSelectTrailer2 = (trailerId: string) => {
     const t = savedTrailers.find(t => t.id === trailerId);
     if (t) setTrailerPlate2(t.trailer_plate);
+  };
+
+  const handleSelectGoods = (goodsId: string) => {
+    const g = savedGoods.find(g => g.id === goodsId);
+    if (g) setGoodsDescription(g.description);
   };
 
   // Opciones para los SearchableSelect
@@ -685,6 +693,16 @@ export default function ModificarDeca() {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-600 mb-1">Naturaleza de la Mercancía</label>
+              {savedGoods.length > 0 && (
+                <div className="mb-2">
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectGoods}
+                    options={savedGoods.map(g => ({ value: g.id, label: g.description }))}
+                    placeholder="-- Rellenar desde mercancía guardada --"
+                  />
+                </div>
+              )}
               <textarea ref={goodsDescriptionRef} value={goodsDescription} onChange={e => { setGoodsDescription(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div className="sm:col-span-2">

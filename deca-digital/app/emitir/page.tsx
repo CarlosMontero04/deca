@@ -146,6 +146,7 @@ export default function EmitirDeca() {
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
   const [savedShippers, setSavedShippers] = useState<any[]>([]);
   const [savedLocations, setSavedLocations] = useState<any[]>([]);
+  const [savedGoods, setSavedGoods] = useState<any[]>([]);
   const [selectedShipperId, setSelectedShipperId] = useState('');
   // Datos de tu propia empresa (company_profile) — el Cargador Contractual
   // por defecto. Se guardan aparte para poder volver a ellos si el usuario
@@ -176,7 +177,7 @@ export default function EmitirDeca() {
         .single();
       setIsOrgAdmin(membership?.role === 'admin');
 
-      const [c, d, t, tr, company, s, loc] = await Promise.all([
+      const [c, d, t, tr, company, s, loc, gds] = await Promise.all([
         supabase.from('carriers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('tractors').select('*').order('tractor_plate'),
@@ -184,6 +185,7 @@ export default function EmitirDeca() {
         supabase.from('company_profile').select('*').eq('user_id', uid).maybeSingle(),
         supabase.from('alternative_shippers').select('*').order('company_name'),
         supabase.from('locations').select('*').order('title'),
+        supabase.from('goods').select('*').order('description'),
       ]);
       setSavedCarriers(c.data || []);
       setSavedDrivers(d.data || []);
@@ -191,6 +193,7 @@ export default function EmitirDeca() {
       setSavedTrailers(tr.data || []);
       setSavedShippers(s.data || []);
       setSavedLocations(loc.data || []);
+      setSavedGoods(gds.data || []);
       // Tu empresa es el Cargador Contractual por defecto (art. 4 Orden
       // FOM/2861/2012): se precarga sola, pero sigue siendo editable, y se
       // puede sustituir por otro cargador guardado en Flota si hace falta.
@@ -303,6 +306,11 @@ export default function EmitirDeca() {
       const actual = prev.replace(/\n+$/, '');
       return actual ? `${actual}\n${direccionUnaLinea}` : direccionUnaLinea;
     });
+  };
+
+  const handleSelectGoods = (goodsId: string) => {
+    const g = savedGoods.find(g => g.id === goodsId);
+    if (g) setGoodsDesc(g.description);
   };
 
   const flashFleetMessage = (msg: string) => {
@@ -916,6 +924,16 @@ export default function EmitirDeca() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-3">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Descripción de la Mercancía</label>
+                {savedGoods.length > 0 && (
+                  <div className="mb-2">
+                    <SearchableSelect
+                      value=""
+                      onChange={handleSelectGoods}
+                      options={savedGoods.map(g => ({ value: g.id, label: g.description }))}
+                      placeholder="-- Rellenar desde mercancía guardada --"
+                    />
+                  </div>
+                )}
                 <textarea ref={goodsDescRef} required value={goodsDesc} onChange={e => { setGoodsDesc(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. NARANJA A GRANEL" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
               </div>
               <div>
