@@ -53,10 +53,11 @@ export default function ModificarDeca() {
   const [notifyMethod, setNotifyMethod] = useState<NotificationMethod>('telefono');
 
   // Flota guardada — para autorellenar con SearchableSelect
-  const [savedCarriers, setSavedCarriers] = useState<any[]>([]);
+  const [savedShippers, setSavedShippers] = useState<any[]>([]);
   const [savedDrivers, setSavedDrivers] = useState<any[]>([]);
   const [savedTractors, setSavedTractors] = useState<any[]>([]);
   const [savedTrailers, setSavedTrailers] = useState<any[]>([]);
+  const [savedLocations, setSavedLocations] = useState<any[]>([]);
   const [savedGoods, setSavedGoods] = useState<any[]>([]);
 
   // Hace que una caja de texto crezca sola según el contenido, en vez de
@@ -153,17 +154,19 @@ export default function ModificarDeca() {
     };
 
     const loadFleet = async () => {
-      const [c, d, t, tr, gds] = await Promise.all([
-        supabase.from('carriers').select('*').order('company_name'),
+      const [s, d, t, tr, loc, gds] = await Promise.all([
+        supabase.from('alternative_shippers').select('*').order('company_name'),
         supabase.from('drivers').select('*').order('name'),
         supabase.from('tractors').select('*').order('tractor_plate'),
         supabase.from('trailers').select('*').order('trailer_plate'),
+        supabase.from('locations').select('*').order('title'),
         supabase.from('goods').select('*').order('description'),
       ]);
-      setSavedCarriers(c.data || []);
+      setSavedShippers(s.data || []);
       setSavedDrivers(d.data || []);
       setSavedTractors(t.data || []);
       setSavedTrailers(tr.data || []);
+      setSavedLocations(loc.data || []);
       setSavedGoods(gds.data || []);
     };
 
@@ -172,14 +175,16 @@ export default function ModificarDeca() {
   }, [id, supabase]);
 
   // ─── Handlers de autorellenado desde flota ─────────────────────────────
-  const handleSelectCarrier = (carrierId: string) => {
-    const c = savedCarriers.find(c => c.id === carrierId);
-    if (c) {
-      setShipperName(c.company_name);
-      setShipperCif(c.cif);
-      setShipperAddress(c.address || '');
-      setShipperPhone(c.phone || '');
-      setShipperEmail(c.email || '');
+  // El Cargador Contractual se elige entre los "Otros cargadores contractuales"
+  // guardados en Flota (igual que en Emitir DeCA), no entre los transportistas.
+  const handleSelectShipper = (shipperId: string) => {
+    const s = savedShippers.find(s => s.id === shipperId);
+    if (s) {
+      setShipperName(s.company_name);
+      setShipperCif(s.cif);
+      setShipperAddress(s.address || '');
+      setShipperPhone(s.phone || '');
+      setShipperEmail(s.email || '');
     }
   };
 
@@ -213,8 +218,34 @@ export default function ModificarDeca() {
     if (g) setGoodsDescription(g.description);
   };
 
+  const handleSelectOrigenLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (l) setOrigin(l.address);
+  };
+
+  const handleSelectDestinoLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (l) setDestination(l.address);
+  };
+
+  // Las Paradas Intermedias se guardan una por línea (se parten por '\n' al
+  // guardar), así que cada ubicación añadida tiene que quedar en una sola
+  // línea — si su dirección guardada tiene saltos de línea propios, se
+  // aplanan aquí para que no se cuele como dos paradas sueltas.
+  const handleAddStopLocation = (locId: string) => {
+    const l = savedLocations.find(l => l.id === locId);
+    if (!l) return;
+    const direccionUnaLinea = (l.address || '').replace(/\s*\n+\s*/g, ' ').trim();
+    if (!direccionUnaLinea) return;
+    setStopsText(prev => {
+      const actual = prev.replace(/\n+$/, '');
+      return actual ? `${actual}\n${direccionUnaLinea}` : direccionUnaLinea;
+    });
+  };
+
   // Opciones para los SearchableSelect
-  const carrierOptions = savedCarriers.map(c => ({ value: c.id, label: c.company_name }));
+  const shipperOptions = savedShippers.map(s => ({ value: s.id, label: s.company_name }));
+  const locationOptions = savedLocations.map(l => ({ value: l.id, label: l.title }));
   const driverOptions = savedDrivers.map(d => ({ value: d.id, label: d.name }));
   const tractorOptions = savedTractors.map(t => ({
     value: t.id,
@@ -548,11 +579,11 @@ export default function ModificarDeca() {
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cargador Contractual</p>
-              {carrierOptions.length > 0 && (
+              {shipperOptions.length > 0 && (
                 <div className="w-full sm:w-56">
                   <SearchableSelect
-                    options={carrierOptions}
-                    onChange={handleSelectCarrier}
+                    options={shipperOptions}
+                    onChange={handleSelectShipper}
                     placeholder="Autorellenar desde flota"
                   />
                 </div>
@@ -685,10 +716,30 @@ export default function ModificarDeca() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Origen</label>
+              {locationOptions.length > 0 && (
+                <div className="mb-2">
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectOrigenLocation}
+                    options={locationOptions}
+                    placeholder="-- Rellenar desde ubicación guardada --"
+                  />
+                </div>
+              )}
               <textarea ref={originRef} value={origin} onChange={e => { setOrigin(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Destino</label>
+              {locationOptions.length > 0 && (
+                <div className="mb-2">
+                  <SearchableSelect
+                    value=""
+                    onChange={handleSelectDestinoLocation}
+                    options={locationOptions}
+                    placeholder="-- Rellenar desde ubicación guardada --"
+                  />
+                </div>
+              )}
               <textarea ref={destinationRef} value={destination} onChange={e => { setDestination(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div className="sm:col-span-2">
@@ -711,6 +762,16 @@ export default function ModificarDeca() {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-600 mb-1">Paradas Intermedias (una por línea)</label>
+              {locationOptions.length > 0 && (
+                <div className="mb-2">
+                  <SearchableSelect
+                    value=""
+                    onChange={handleAddStopLocation}
+                    options={locationOptions}
+                    placeholder="-- Añadir parada desde ubicación guardada --"
+                  />
+                </div>
+              )}
               <textarea ref={stopsTextRef} value={stopsText} onChange={e => { setStopsText(e.target.value); autoResize(e); }} rows={2} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
           </div>
@@ -729,6 +790,7 @@ export default function ModificarDeca() {
                 <option value="RESERVA_ESTADO_MERCANCIA">Reserva sobre el estado de la mercancía</option>
                 <option value="INCIDENCIA_RUTA">Incidencia grave en ruta (Avería / Accidente)</option>
                 <option value="VARIACION_DESTINO">Variación de destino</option>
+                <option value="ERROR_CARGADOR_CONTRACTUAL">Error en el Cargador Contractual</option>
                 <option value="OTRO">Otro motivo</option>
               </select>
             </div>
