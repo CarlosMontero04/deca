@@ -90,6 +90,7 @@ export default function ModificarDeca() {
   const destinationRef = useRef<HTMLTextAreaElement>(null);
   const goodsDescriptionRef = useRef<HTMLTextAreaElement>(null);
   const grossWeightRef = useRef<HTMLTextAreaElement>(null);
+  const packageCountRef = useRef<HTMLTextAreaElement>(null);
   const stopsTextRef = useRef<HTMLTextAreaElement>(null);
   const observationsFieldRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,11 +100,11 @@ export default function ModificarDeca() {
   useLayoutEffect(() => {
     [internalTitleRef, shipperNameRef, shipperCifRef, shipperAddressRef, shipperPhoneRef, shipperEmailRef,
      tractorPlateRef, trailerPlateRef, trailerPlate2Ref, driverNameRef, driverDniRef, driverEmailRef, phoneRef,
-     originRef, destinationRef, goodsDescriptionRef, grossWeightRef, stopsTextRef, observationsFieldRef]
+     originRef, destinationRef, goodsDescriptionRef, grossWeightRef, packageCountRef, stopsTextRef, observationsFieldRef]
       .forEach(r => resizeEl(r.current));
   }, [internalTitle, shipperName, shipperCif, shipperAddress, shipperPhone, shipperEmail,
       tractorPlate, trailerPlate, trailerPlate2, driverName, driverDni, driverEmail, phone,
-      origin, destination, goodsDescription, grossWeight, stopsText, observationsField]);
+      origin, destination, goodsDescription, grossWeight, packageCount, stopsText, observationsField]);
 
 
   // Motivo y detalle narrativo, aplican a todos los cambios de este envío
@@ -307,7 +308,7 @@ export default function ModificarDeca() {
       { field: 'destination', label: 'Lugar de Destino', previousValue: original.destination, newValue: destination },
       { field: 'goodsDescription', label: 'Naturaleza de la Mercancía', previousValue: original.goodsDescription, newValue: goodsDescription },
       { field: 'grossWeight', label: 'Peso Bruto (Kg)', previousValue: original.grossWeight, newValue: grossWeight },
-      { field: 'packageCount', label: 'Número de Bultos', previousValue: original.packageCount, newValue: packageCount },
+      { field: 'packageCount', label: 'Magnitud / Bultos', previousValue: original.packageCount, newValue: packageCount },
       { field: 'observations', label: 'Observaciones', previousValue: original.observations, newValue: observationsField },
       { field: 'stops', label: 'Paradas Intermedias', previousValue: originalStopsText, newValue: stopsText },
     ];
@@ -711,8 +712,8 @@ export default function ModificarDeca() {
               <textarea ref={grossWeightRef} value={grossWeight} onChange={e => { setGrossWeight(e.target.value); autoResize(e); }} rows={1} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Número de Bultos</label>
-              <input type="number" min="0" value={packageCount} onChange={e => setPackageCount(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900" />
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Magnitud / Bultos</label>
+              <textarea ref={packageCountRef} value={packageCount} onChange={e => { setPackageCount(e.target.value); autoResize(e); }} rows={1} placeholder="Ej. 24 palets" className="w-full px-3 py-2 border rounded-lg text-sm text-slate-900 resize-none overflow-hidden" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Lugar de Origen</label>
