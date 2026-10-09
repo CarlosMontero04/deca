@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle, MessageCircle, Mail } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle, MessageCircle, Mail, Package } from 'lucide-react';
+import BulkDownloadModal from '../components/BulkDownloadModal';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 import { loadOrgBranding } from '../utils/loadOrgBranding';
 import { notifyDriver } from '../utils/notifyDriver';
@@ -21,6 +22,9 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Rol real dentro de la organización (organization_members), no el de user_metadata
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
+  const [showBulkDownload, setShowBulkDownload] = useState(false);
   const router = useRouter();
   
   const supabase = createClient();
@@ -34,6 +38,12 @@ export default function Dashboard() {
         return;
       }
       setUser(session.user);
+
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('role')
+        .single();
+      setIsOrgAdmin(membership?.role === 'admin');
 
       const { data: decasData, error } = await supabase
         .from('decas')
@@ -256,7 +266,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 sm:p-10 max-w-7xl mx-auto w-full flex flex-col gap-6">
+      <main className="flex-1 p-4 sm:p-6 xl:px-8 max-w-[1800px] mx-auto w-full flex flex-col gap-6">
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -264,7 +274,16 @@ export default function Dashboard() {
             <p className="text-sm text-slate-500">Panel de gestión y control en tiempo real</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button 
+            {isOrgAdmin && (
+              <button
+                onClick={() => setShowBulkDownload(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+              >
+                <Package className="w-5 h-5" />
+                Descargar DeCAs
+              </button>
+            )}
+            <button
               onClick={() => router.push('/emitir')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
             >
@@ -321,35 +340,44 @@ export default function Dashboard() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-bold">
                   <tr>
-                    <th className="p-4">ID DeCA</th>
-                    <th className="p-4">Transportista</th>
-                    <th className="p-4">Ruta</th>
-                    <th className="p-4">Fecha</th>
-                    <th className="p-4">Versión</th>
-                    <th className="p-4">Estado</th>
-                    <th className="p-4 text-right">Acciones</th>
+                    <th className="px-3 py-3">ID DeCA</th>
+                    <th className="px-3 py-3">Transportista</th>
+                    <th className="px-3 py-3">Matrícula</th>
+                    <th className="px-3 py-3">Ruta</th>
+                    <th className="px-3 py-3">Fecha</th>
+                    <th className="px-3 py-3">Versión</th>
+                    <th className="px-3 py-3">Estado</th>
+                    <th className="px-3 py-3 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {filteredDecas.map((doc) => (
                     <tr key={doc.id} className="hover:bg-slate-50">
-                      <td className="p-4 font-mono font-bold text-blue-900">
+                      <td className="px-3 py-3 font-mono font-bold text-blue-900 whitespace-nowrap">
                         {doc.id}
                         {doc.internal_title && (
                           <div className="font-sans font-normal text-xs text-slate-400 mt-0.5">{doc.internal_title}</div>
                         )}
                       </td>
-                      <td className="p-4">{doc.carrier?.companyName || 'Sin asignar'}</td>
-                      <td className="p-4">{doc.route?.originMain} → {doc.route?.destinationMain}</td>
-                      <td className="p-4 whitespace-nowrap">
+                      <td className="px-3 py-3">{doc.carrier?.companyName || 'Sin asignar'}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <div className="font-mono font-bold text-slate-800">{doc.carrier?.tractorPlate || '—'}</div>
+                        {(doc.carrier?.trailerPlate || doc.carrier?.trailerPlate2) && (
+                          <div className="font-mono text-xs text-slate-500 mt-0.5">
+                            {[doc.carrier?.trailerPlate, doc.carrier?.trailerPlate2].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">{doc.route?.originMain} → {doc.route?.destinationMain}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">
                         {doc.route?.plannedStartDate ? new Date(doc.route.plannedStartDate).toLocaleDateString('es-ES') : '—'}
                       </td>
-                      <td className="p-4">
+                      <td className="px-3 py-3">
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded text-xs font-bold border border-slate-200">
                           v{doc.version}.0
                         </span>
                       </td>
-                      <td className="p-4">
+                      <td className="px-3 py-3">
                         <select
                           value={doc.status}
                           onChange={e => handleStatusChange(doc.id, e.target.value)}
@@ -362,7 +390,7 @@ export default function Dashboard() {
                           <option value="CANCELADO">Cancelado</option>
                         </select>
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="px-3 py-3 text-right">
                         <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => handleQuickNotify(doc, 'telefono')}
@@ -422,6 +450,18 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {isOrgAdmin && showBulkDownload && (
+        <BulkDownloadModal
+          decas={decas}
+          supabase={supabase}
+          onClose={() => setShowBulkDownload(false)}
+          initialSearch={searchQuery}
+          initialStatus={statusFilter}
+          initialDateFrom={dateFrom}
+          initialDateTo={dateTo}
+        />
+      )}
     </div>
   );
 }
