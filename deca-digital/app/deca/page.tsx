@@ -266,7 +266,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="flex-1 p-4 sm:p-6 xl:px-8 max-w-[1800px] mx-auto w-full flex flex-col gap-6">
+      <main className="flex-1 p-6 sm:p-10 max-w-7xl mx-auto w-full flex flex-col gap-6">
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -340,44 +340,35 @@ export default function Dashboard() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-bold">
                   <tr>
-                    <th className="px-3 py-3">ID DeCA</th>
-                    <th className="px-3 py-3">Transportista</th>
-                    <th className="px-3 py-3">Matrícula</th>
-                    <th className="px-3 py-3">Ruta</th>
-                    <th className="px-3 py-3">Fecha</th>
-                    <th className="px-3 py-3">Versión</th>
-                    <th className="px-3 py-3">Estado</th>
-                    <th className="px-3 py-3 text-right">Acciones</th>
+                    <th className="p-4">ID DeCA</th>
+                    <th className="p-4">Transportista</th>
+                    <th className="p-4">Ruta</th>
+                    <th className="p-4">Fecha</th>
+                    <th className="p-4">Versión</th>
+                    <th className="p-4">Estado</th>
+                    <th className="p-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {filteredDecas.map((doc) => (
                     <tr key={doc.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-3 font-mono font-bold text-blue-900 whitespace-nowrap">
+                      <td className="p-4 font-mono font-bold text-blue-900">
                         {doc.id}
                         {doc.internal_title && (
                           <div className="font-sans font-normal text-xs text-slate-400 mt-0.5">{doc.internal_title}</div>
                         )}
                       </td>
-                      <td className="px-3 py-3">{doc.carrier?.companyName || 'Sin asignar'}</td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <div className="font-mono font-bold text-slate-800">{doc.carrier?.tractorPlate || '—'}</div>
-                        {(doc.carrier?.trailerPlate || doc.carrier?.trailerPlate2) && (
-                          <div className="font-mono text-xs text-slate-500 mt-0.5">
-                            {[doc.carrier?.trailerPlate, doc.carrier?.trailerPlate2].filter(Boolean).join(' · ')}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">{doc.route?.originMain} → {doc.route?.destinationMain}</td>
-                      <td className="px-3 py-3 whitespace-nowrap">
+                      <td className="p-4">{doc.carrier?.companyName || 'Sin asignar'}</td>
+                      <td className="p-4">{doc.route?.originMain} → {doc.route?.destinationMain}</td>
+                      <td className="p-4 whitespace-nowrap">
                         {doc.route?.plannedStartDate ? new Date(doc.route.plannedStartDate).toLocaleDateString('es-ES') : '—'}
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="p-4">
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded text-xs font-bold border border-slate-200">
                           v{doc.version}.0
                         </span>
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="p-4">
                         <select
                           value={doc.status}
                           onChange={e => handleStatusChange(doc.id, e.target.value)}
@@ -390,7 +381,7 @@ export default function Dashboard() {
                           <option value="CANCELADO">Cancelado</option>
                         </select>
                       </td>
-                      <td className="px-3 py-3 text-right">
+                      <td className="p-4 text-right">
                         <div className="flex justify-end gap-1.5">
                           <button
                             onClick={() => handleQuickNotify(doc, 'telefono')}
