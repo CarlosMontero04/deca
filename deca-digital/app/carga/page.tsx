@@ -7,6 +7,7 @@ import { LogOut, FileText, PlusCircle, Download, Eye, FileEdit, MessageCircle, M
 import BulkDownloadModal, { type BulkItem } from '../components/BulkDownloadModal';
 import { notifyCarrierOrden } from '../utils/notifyCarrierOrden';
 import { useOrgLogo } from '../hooks/useOrgLogo';
+import { nombreArchivoOrden } from '../utils/nombreArchivoOrden';
 
 export default function PanelOrdenesCarga() {
   const { logoUrl: orgLogoUrl, orgName } = useOrgLogo();
@@ -93,7 +94,7 @@ export default function PanelOrdenesCarga() {
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${orden.id}.pdf`;
+      a.download = nombreArchivoOrden(orden.id, orden.carrier_name);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -290,7 +291,7 @@ export default function PanelOrdenesCarga() {
         <BulkDownloadModal
           items={ordenes.map((o): BulkItem => ({
             id: o.id,
-            fileName: `${o.id}.pdf`,
+            fileName: nombreArchivoOrden(o.id, o.carrier_name),
             path: o.pdf_storage_path,
             title: o.carrier_name || 'Sin asignar',
             detail: o.origen || o.destino ? `${o.origen ?? ''} → ${o.destino ?? ''}` : undefined,

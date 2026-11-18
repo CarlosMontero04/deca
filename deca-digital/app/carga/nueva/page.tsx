@@ -9,6 +9,7 @@ import { notifyCarrierOrden } from '../../utils/notifyCarrierOrden';
 import SearchableSelect from '../../components/SearchableSelect';
 import { getOrgId } from '../../utils/getOrgId';
 import { savePdfAs } from '../../utils/savePdfAs';
+import { nombreArchivoOrden } from '../../utils/nombreArchivoOrden';
 import { ArrowLeft, FileText, Save } from 'lucide-react';
 
 export default function NuevaOrdenCarga() {
@@ -324,7 +325,7 @@ export default function NuevaOrdenCarga() {
                     if (error || !data) throw new Error('No se pudo descargar el PDF.');
                     return data;
                   },
-                  `${createdId}.pdf`
+                  nombreArchivoOrden(createdId!, carrierName)
                 );
                 setSavingAs(false);
                 if (!result.success && !result.cancelled) alert(result.error || 'No se pudo guardar el PDF.');
