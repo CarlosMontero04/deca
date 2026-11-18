@@ -446,9 +446,9 @@ export default function FlotaPanel() {
 
   const q = search.trim().toLowerCase();
   const filteredCarriers = carriers.filter(c => !q || c.company_name?.toLowerCase().includes(q) || c.cif?.toLowerCase().includes(q));
-  const filteredDrivers = drivers.filter(d => !q || d.name?.toLowerCase().includes(q) || d.dni?.toLowerCase().includes(q));
   // Tractoras y remolques se buscan por matrícula, por título interno o por el nombre del transportista asignado.
   const transportistaDe = (carrierId: string | null) => carriers.find(c => c.id === carrierId)?.company_name?.toLowerCase() || '';
+  const filteredDrivers = drivers.filter(d => !q || d.name?.toLowerCase().includes(q) || d.dni?.toLowerCase().includes(q) || transportistaDe(d.carrier_id).includes(q));
   const filteredTractors = tractors.filter(t => !q || t.tractor_plate?.toLowerCase().includes(q) || t.internal_title?.toLowerCase().includes(q) || transportistaDe(t.carrier_id).includes(q));
   const filteredTrailers = trailers.filter(t => !q || t.trailer_plate?.toLowerCase().includes(q) || t.internal_title?.toLowerCase().includes(q) || transportistaDe(t.carrier_id).includes(q));
   const filteredLocations = locations.filter(l => !q || l.title?.toLowerCase().includes(q) || l.address?.toLowerCase().includes(q));
@@ -533,7 +533,7 @@ export default function FlotaPanel() {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder={tab === 'transportistas' || tab === 'cargadores' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre o DNI...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : tab === 'mercancias' ? 'Buscar por descripción...' : 'Buscar por matrícula, transportista o título interno...'}
+              placeholder={tab === 'transportistas' || tab === 'cargadores' ? 'Buscar por empresa o CIF...' : tab === 'conductores' ? 'Buscar por nombre, DNI o transportista...' : tab === 'ubicaciones' ? 'Buscar por título o dirección...' : tab === 'mercancias' ? 'Buscar por descripción...' : 'Buscar por matrícula, transportista o título interno...'}
               className="w-full sm:w-72 px-3 py-2 border rounded-lg text-sm text-slate-900 bg-white"
             />
           )}
