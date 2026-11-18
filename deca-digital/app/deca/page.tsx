@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
 import { LogOut, FileText, PlusCircle, Download, FileEdit, Eye, Home, UserCircle, MessageCircle, Mail, Package } from 'lucide-react';
-import BulkDownloadModal from '../components/BulkDownloadModal';
+import BulkDownloadModal, { type BulkItem } from '../components/BulkDownloadModal';
 import { generateDecaPdf } from '../utils/pdfGenerator';
 import { loadOrgBranding } from '../utils/loadOrgBranding';
 import { notifyDriver } from '../utils/notifyDriver';
@@ -207,6 +207,93 @@ export default function Dashboard() {
     }
   };
 
+  type Doc = (typeof decas)[number];
+
+  // --- Piezas compartidas por la tabla (pantallas anchas) y las tarjetas (pantallas estrechas) ---
+  // Así ambas vistas muestran exactamente lo mismo y los botones se mantienen en un solo sitio.
+  const renderStatusSelect = (doc: Doc) => (
+    <select
+      value={doc.status}
+      onChange={e => handleStatusChange(doc.id, e.target.value)}
+      aria-label={`Estado de ${doc.id}`}
+      className="w-full max-w-[11rem] bg-white border border-slate-200 rounded-lg text-xs font-semibold px-2 py-1.5 text-slate-700"
+    >
+      <option value="BORRADOR">Borrador</option>
+      <option value="EN_TRANSITO">En Tránsito</option>
+      <option value="ENTREGADO">Entregado</option>
+      <option value="MODIFICADO_EN_RUTA">Modificado en Ruta</option>
+      <option value="CANCELADO">Cancelado</option>
+    </select>
+  );
+
+  const renderPlates = (doc: Doc) => {
+    const trailers = [doc.carrier?.trailerPlate, doc.carrier?.trailerPlate2].filter(Boolean);
+    return (
+      <>
+        <div className="font-mono font-bold text-slate-800">{doc.carrier?.tractorPlate || '—'}</div>
+        {trailers.map((plate: string) => (
+          <div key={plate} className="font-mono text-xs text-slate-500 mt-0.5">{plate}</div>
+        ))}
+      </>
+    );
+  };
+
+  const renderActions = (doc: Doc) => (
+    <>
+      <button
+        onClick={() => handleQuickNotify(doc, 'telefono')}
+        disabled={!doc.carrier?.phone || notifyingId === doc.id + 'telefono'}
+        title="Notificar por WhatsApp"
+        className="h-8 w-8 flex items-center justify-center shrink-0 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+      >
+        <MessageCircle className="w-4 h-4" />
+        <span className="sr-only">Notificar por WhatsApp</span>
+      </button>
+
+      <button
+        onClick={() => handleQuickNotify(doc, 'email')}
+        disabled={!doc.carrier?.driverEmail || notifyingId === doc.id + 'email'}
+        title="Notificar por Email"
+        className="h-8 w-8 flex items-center justify-center shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+      >
+        <Mail className="w-4 h-4" />
+        <span className="sr-only">Notificar por Email</span>
+      </button>
+
+      <button
+        onClick={() => router.push(`/modificar/${doc.id}`)}
+        title="Editar"
+        className="h-8 w-8 flex items-center justify-center shrink-0 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors"
+      >
+        <FileEdit className="w-4 h-4" />
+        <span className="sr-only">Editar</span>
+      </button>
+
+      <button
+        onClick={() => handlePreviewPdf(doc)}
+        disabled={previewingId === doc.id}
+        title="Previsualizar"
+        className="h-8 w-8 flex items-center justify-center shrink-0 bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+      >
+        <Eye className="w-4 h-4" />
+        <span className="sr-only">{previewingId === doc.id ? 'Abriendo...' : 'Ver'}</span>
+      </button>
+
+      <button
+        onClick={() => handleDownloadPdf(doc)}
+        disabled={downloadingId === doc.id}
+        title="Descargar"
+        className="h-8 w-8 flex items-center justify-center shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
+      >
+        <Download className="w-4 h-4" />
+        <span className="sr-only">{downloadingId === doc.id ? 'Generando...' : 'Descargar'}</span>
+      </button>
+    </>
+  );
+
+  const fechaTransporte = (doc: Doc) =>
+    doc.route?.plannedStartDate ? new Date(doc.route.plannedStartDate).toLocaleDateString('es-ES') : '—';
+
   if (loading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50">
@@ -266,7 +353,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 sm:p-10 max-w-7xl mx-auto w-full flex flex-col gap-6">
+      <main className="flex-1 p-4 sm:p-6 xl:px-8 max-w-[1800px] mx-auto w-full flex flex-col gap-6">
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
@@ -335,117 +422,142 @@ export default function Dashboard() {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+          <>
+            {/* PANTALLAS ANCHAS (xl, desde 1280 px): tabla de anchos fijos. El texto largo se
+                ajusta en varias líneas en lugar de ensanchar la tabla, así nunca hay scroll horizontal. */}
+            <div className="hidden xl:block bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full table-fixed text-left border-collapse">
+                <colgroup>
+                  <col className="w-[12rem]" />
+                  <col />
+                  <col className="w-[8.5rem]" />
+                  <col />
+                  <col className="w-[6.5rem]" />
+                  <col className="w-[11rem]" />
+                  <col className="w-[15rem]" />
+                </colgroup>
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-bold">
                   <tr>
-                    <th className="p-4">ID DeCA</th>
-                    <th className="p-4">Transportista</th>
-                    <th className="p-4">Ruta</th>
-                    <th className="p-4">Fecha</th>
-                    <th className="p-4">Versión</th>
-                    <th className="p-4">Estado</th>
-                    <th className="p-4 text-right">Acciones</th>
+                    <th className="px-3 py-4">ID DeCA</th>
+                    <th className="px-3 py-4">Transportista</th>
+                    <th className="px-3 py-4">Matrícula</th>
+                    <th className="px-3 py-4">Ruta</th>
+                    <th className="px-3 py-4">Fecha</th>
+                    <th className="px-3 py-4">Estado</th>
+                    <th className="px-3 py-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {filteredDecas.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-slate-50">
-                      <td className="p-4 font-mono font-bold text-blue-900">
-                        {doc.id}
-                        {doc.internal_title && (
-                          <div className="font-sans font-normal text-xs text-slate-400 mt-0.5">{doc.internal_title}</div>
-                        )}
-                      </td>
-                      <td className="p-4">{doc.carrier?.companyName || 'Sin asignar'}</td>
-                      <td className="p-4">{doc.route?.originMain} → {doc.route?.destinationMain}</td>
-                      <td className="p-4 whitespace-nowrap">
-                        {doc.route?.plannedStartDate ? new Date(doc.route.plannedStartDate).toLocaleDateString('es-ES') : '—'}
-                      </td>
-                      <td className="p-4">
-                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded text-xs font-bold border border-slate-200">
-                          v{doc.version}.0
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <select
-                          value={doc.status}
-                          onChange={e => handleStatusChange(doc.id, e.target.value)}
-                          className="bg-white border border-slate-200 rounded-lg text-xs font-semibold px-2 py-1.5 text-slate-700"
-                        >
-                          <option value="BORRADOR">Borrador</option>
-                          <option value="EN_TRANSITO">En Tránsito</option>
-                          <option value="ENTREGADO">Entregado</option>
-                          <option value="MODIFICADO_EN_RUTA">Modificado en Ruta</option>
-                          <option value="CANCELADO">Cancelado</option>
-                        </select>
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            onClick={() => handleQuickNotify(doc, 'telefono')}
-                            disabled={!doc.carrier?.phone || notifyingId === doc.id + 'telefono'}
-                            title="Notificar por WhatsApp"
-                            className="h-8 w-8 flex items-center justify-center shrink-0 bg-green-600 hover:bg-green-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            <span className="sr-only">Notificar por WhatsApp</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleQuickNotify(doc, 'email')}
-                            disabled={!doc.carrier?.driverEmail || notifyingId === doc.id + 'email'}
-                            title="Notificar por Email"
-                            className="h-8 w-8 flex items-center justify-center shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                          >
-                            <Mail className="w-4 h-4" />
-                            <span className="sr-only">Notificar por Email</span>
-                          </button>
-
-                          <button
-                            onClick={() => router.push(`/modificar/${doc.id}`)}
-                            title="Editar"
-                            className="h-8 w-8 flex items-center justify-center shrink-0 bg-amber-500 hover:bg-amber-600 text-white rounded-lg shadow-sm transition-colors"
-                          >
-                            <FileEdit className="w-4 h-4" />
-                            <span className="sr-only">Editar</span>
-                          </button>
-
-                          <button
-                            onClick={() => handlePreviewPdf(doc)}
-                            disabled={previewingId === doc.id}
-                            title="Previsualizar"
-                            className="h-8 w-8 flex items-center justify-center shrink-0 bg-slate-600 hover:bg-slate-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span className="sr-only">{previewingId === doc.id ? 'Abriendo...' : 'Ver'}</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleDownloadPdf(doc)}
-                            disabled={downloadingId === doc.id}
-                            title="Descargar"
-                            className="h-8 w-8 flex items-center justify-center shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                          >
-                            <Download className="w-4 h-4" />
-                            <span className="sr-only">{downloadingId === doc.id ? 'Generando...' : 'Descargar'}</span>
-                          </button>
+                    <tr key={doc.id} className="hover:bg-slate-50 align-top">
+                      <td className="px-3 py-4">
+                        <div className="font-mono font-bold text-blue-900">{doc.id}</div>
+                        <div className="flex items-center gap-2 mt-1 min-w-0">
+                          <span className="shrink-0 bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200">
+                            v{doc.version}.0
+                          </span>
+                          {doc.internal_title && (
+                            <span className="truncate text-xs text-slate-400" title={doc.internal_title}>{doc.internal_title}</span>
+                          )}
                         </div>
+                      </td>
+                      <td className="px-3 py-4 break-words">
+                        <div className="line-clamp-3" title={doc.carrier?.companyName || undefined}>{doc.carrier?.companyName || 'Sin asignar'}</div>
+                      </td>
+                      <td className="px-3 py-4">{renderPlates(doc)}</td>
+                      <td className="px-3 py-4 break-words">
+                        <div className="line-clamp-2" title={doc.route?.originMain || undefined}>{doc.route?.originMain}</div>
+                        <div className="line-clamp-2 text-slate-500" title={doc.route?.destinationMain || undefined}>→ {doc.route?.destinationMain}</div>
+                      </td>
+                      <td className="px-3 py-4 whitespace-nowrap">{fechaTransporte(doc)}</td>
+                      <td className="px-3 py-4">{renderStatusSelect(doc)}</td>
+                      <td className="px-3 py-4">
+                        <div className="flex justify-end gap-1.5">{renderActions(doc)}</div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+
+            {/* PANTALLAS ESTRECHAS (móvil, tablet y portátiles pequeños): una tarjeta por DeCA,
+                con los mismos datos y botones, que se adapta al ancho disponible. */}
+            <div className="xl:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredDecas.map((doc) => (
+                <div key={doc.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-mono font-bold text-blue-900 break-all">{doc.id}</div>
+                      {doc.internal_title && (
+                        <div className="text-xs text-slate-400 mt-0.5 break-words">{doc.internal_title}</div>
+                      )}
+                    </div>
+                    <span className="shrink-0 bg-slate-100 text-slate-700 px-2.5 py-1 rounded text-xs font-bold border border-slate-200">
+                      v{doc.version}.0
+                    </span>
+                  </div>
+
+                  <div className="text-sm font-semibold text-slate-800 break-words">{doc.carrier?.companyName || 'Sin asignar'}</div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wide mb-0.5">Matrícula</div>
+                      {renderPlates(doc)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wide mb-0.5">Fecha</div>
+                      <div>{fechaTransporte(doc)}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-sm text-slate-600 break-words">
+                    <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wide mb-0.5">Ruta</div>
+                    {doc.route?.originMain} → {doc.route?.destinationMain}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                    <div className="min-w-0 flex-1 basis-40">{renderStatusSelect(doc)}</div>
+                    <div className="flex flex-wrap justify-end gap-1.5">{renderActions(doc)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </main>
 
       {isOrgAdmin && showBulkDownload && (
         <BulkDownloadModal
-          decas={decas}
+          items={decas.map((d): BulkItem => ({
+            id: d.id,
+            fileName: `${d.id}_v${d.version}.pdf`,
+            path: d.pdf_storage_path,
+            cacheKey: d.version,
+            title: d.carrier?.companyName || 'Sin asignar',
+            detail: `${d.route?.originMain ?? ''} → ${d.route?.destinationMain ?? ''}`,
+            date: d.route?.plannedStartDate,
+            statusKey: d.status,
+            badge: `v${d.version}.0`,
+            searchText: [d.id, d.carrier?.companyName, d.carrier?.tractorPlate, d.internal_title]
+              .filter(Boolean).join(' ').toLowerCase(),
+          }))}
           supabase={supabase}
+          bucket="decas-pdf"
+          publicBucket
+          labels={{
+            titulo: 'Descargar DeCAs en paquete',
+            singular: 'DeCA',
+            plural: 'DeCAs',
+            buscar: 'Buscar por ID, transportista, matrícula o título...',
+            zipPrefijo: 'DeCAs',
+          }}
+          statusOptions={{
+            BORRADOR: 'Borrador',
+            EN_TRANSITO: 'En Tránsito',
+            ENTREGADO: 'Entregado',
+            MODIFICADO_EN_RUTA: 'Modificado en Ruta',
+            CANCELADO: 'Cancelado',
+          }}
           onClose={() => setShowBulkDownload(false)}
           initialSearch={searchQuery}
           initialStatus={statusFilter}

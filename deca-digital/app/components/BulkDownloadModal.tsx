@@ -21,33 +21,43 @@ type PickerWindow = Window & {
   }) => Promise<FsFileHandle>;
 };
 
-interface DecaRow {
+// Un documento descargable (DeCA u orden de carga) ya preparado para la ventana:
+// cada pantalla convierte sus filas a este formato, y la ventana es la misma para todos.
+export interface BulkItem {
   id: string;
-  version: number;
-  status: string;
-  pdf_storage_path?: string | null;
-  internal_title?: string | null;
-  carrier?: { companyName?: string; tractorPlate?: string } | null;
-  route?: { plannedStartDate?: string; originMain?: string; destinationMain?: string } | null;
+  fileName: string;                      // nombre con el que se guarda el PDF
+  path?: string | null;                  // ruta del PDF en el almacenamiento (null = sin PDF guardado)
+  cacheKey?: string | number;            // solo para buckets públicos: evita servir una versión antigua
+  title: string;                         // línea principal (transportista)
+  detail?: string;                       // línea secundaria (ruta)
+  date?: string | null;                  // fecha ISO, para filtrar y mostrar
+  statusKey?: string;                    // estado (solo si la pantalla tiene filtro por estado)
+  badge?: string;                        // etiqueta pequeña, p. ej. la versión
+  searchText: string;                    // texto en minúsculas sobre el que busca el cuadro de búsqueda
+}
+
+export interface BulkLabels {
+  titulo: string;                        // «Descargar DeCAs en paquete»
+  singular: string;                      // «DeCA»
+  plural: string;                        // «DeCAs»
+  femenino?: boolean;                    // para concordar: «seleccionadas», «ninguna»...
+  buscar: string;                        // texto del cuadro de búsqueda
+  zipPrefijo: string;                    // «DeCAs» → DeCAs_2026-11-18.zip
 }
 
 interface Props {
-  decas: DecaRow[];
+  items: BulkItem[];
   supabase: SupabaseClient;
   onClose: () => void;
+  bucket: string;                        // 'decas-pdf' | 'ordenes-carga-pdf'
+  publicBucket: boolean;                 // los DeCAs son públicos; las órdenes de carga son privadas
+  labels: BulkLabels;
+  statusOptions?: Record<string, string>; // si se indica, se muestra el filtro por estado
   initialSearch?: string;
   initialStatus?: string;
   initialDateFrom?: string;
   initialDateTo?: string;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  BORRADOR: 'Borrador',
-  EN_TRANSITO: 'En Tránsito',
-  ENTREGADO: 'Entregado',
-  MODIFICADO_EN_RUTA: 'Modificado en Ruta',
-  CANCELADO: 'Cancelado',
-};
 
 // Cuántos PDFs se descargan a la vez. Más de esto no acelera y satura la conexión.
 const SIMULTANEOS = 4;
@@ -55,7 +65,7 @@ const SIMULTANEOS = 4;
 const MAX_ZIP = 300;
 
 export default function BulkDownloadModal({
-  decas, supabase, onClose,
+  items, supabase, onClose, bucket, publicBucket, labels, statusOptions,
   initialSearch = '', initialStatus = '', initialDateFrom = '', initialDateTo = '',
 }: Props) {
   const [search, setSearch] = useState(initialSearch);
@@ -63,6 +73,10 @@ export default function BulkDownloadModal({
   const [dateFrom, setDateFrom] = useState(initialDateFrom);
   const [dateTo, setDateTo] = useState(initialDateTo);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const fem = !!labels.femenino;
+  const os = fem ? 'as' : 'os';   // todos / todas, seleccionados / seleccionadas...
+  const o = fem ? 'a' : 'o';      // guardado / guardada
 
   const carpetaSoportada = typeof window !== 'undefined'
     && typeof (window as PickerWindow).showDirectoryPicker === 'function';
@@ -78,24 +92,18 @@ export default function BulkDownloadModal({
   const [error, setError] = useState<string | null>(null);
 
   const q = search.trim().toLowerCase();
-  const filtrados = useMemo(() => decas.filter(doc => {
-    if (q) {
-      const coincide = doc.id?.toLowerCase().includes(q)
-        || doc.carrier?.companyName?.toLowerCase().includes(q)
-        || doc.carrier?.tractorPlate?.toLowerCase().includes(q)
-        || doc.internal_title?.toLowerCase().includes(q);
-      if (!coincide) return false;
-    }
-    if (status && doc.status !== status) return false;
-    const fecha = doc.route?.plannedStartDate ? doc.route.plannedStartDate.slice(0, 10) : '';
+  const filtrados = useMemo(() => items.filter(it => {
+    if (q && !it.searchText.includes(q)) return false;
+    if (statusOptions && status && it.statusKey !== status) return false;
+    const fecha = it.date ? it.date.slice(0, 10) : '';
     if (dateFrom && fecha < dateFrom) return false;
     if (dateTo && fecha > dateTo) return false;
     return true;
-  }), [decas, q, status, dateFrom, dateTo]);
+  }), [items, q, status, statusOptions, dateFrom, dateTo]);
 
-  // Solo se pueden empaquetar los DeCAs que tienen su PDF guardado.
-  const seleccionables = filtrados.filter(d => !!d.pdf_storage_path);
-  const seleccionados = decas.filter(d => selected.has(d.id) && !!d.pdf_storage_path);
+  // Solo se pueden empaquetar los documentos que tienen su PDF guardado.
+  const seleccionables = filtrados.filter(d => !!d.path);
+  const seleccionados = items.filter(d => selected.has(d.id) && !!d.path);
   const todosMarcados = seleccionables.length > 0 && seleccionables.every(d => selected.has(d.id));
 
   const alternar = (id: string) => setSelected(prev => {
@@ -126,10 +134,27 @@ export default function BulkDownloadModal({
   const puedeDescargar = !running && seleccionados.length > 0
     && (modo === 'zip' ? seleccionados.length <= MAX_ZIP : !!dirHandle);
 
+  // Obtiene el PDF: los DeCAs están en un bucket público (se pide por URL), las órdenes
+  // de carga en uno privado (se descarga con la sesión del usuario, igual que el botón de cada fila).
+  const obtenerPdf = async (it: BulkItem): Promise<Blob> => {
+    if (publicBucket) {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(it.path!);
+      const sufijo = it.cacheKey !== undefined ? `?v=${it.cacheKey}` : '';
+      const res = await fetch(`${data.publicUrl}${sufijo}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    }
+    const { data, error: errDescarga } = await supabase.storage.from(bucket).download(it.path!);
+    if (errDescarga || !data) throw errDescarga ?? new Error('Sin datos');
+    return data;
+  };
+
   const descargar = async () => {
     if (!puedeDescargar) return;
     setError(null);
     setResultado(null);
+
+    const nombreZip = `${labels.zipPrefijo}_${new Date().toISOString().slice(0, 10)}.zip`;
 
     // El cuadro "Guardar como..." solo se puede abrir como respuesta directa al clic
     // del usuario, así que se pide ANTES de empezar a descargar los PDFs.
@@ -137,7 +162,7 @@ export default function BulkDownloadModal({
     if (modo === 'zip' && guardarComoSoportado) {
       try {
         ficheroZip = await (window as PickerWindow).showSaveFilePicker!({
-          suggestedName: `DeCAs_${new Date().toISOString().slice(0, 10)}.zip`,
+          suggestedName: nombreZip,
           types: [{ description: 'Archivo ZIP', accept: { 'application/zip': ['.zip'] } }],
         });
       } catch (e) {
@@ -159,25 +184,21 @@ export default function BulkDownloadModal({
 
     const trabajador = async () => {
       while (cola.length > 0) {
-        const doc = cola.shift()!;
-        const nombre = `${doc.id}_v${doc.version}.pdf`;
+        const it = cola.shift()!;
         try {
-          const { data } = supabase.storage.from('decas-pdf').getPublicUrl(doc.pdf_storage_path!);
-          const res = await fetch(`${data.publicUrl}?v=${doc.version}`, { cache: 'no-store' });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const blob = await res.blob();
+          const blob = await obtenerPdf(it);
           if (blob.size === 0) throw new Error('PDF vacío');
           if (zip) {
-            zip.file(nombre, blob);
+            zip.file(it.fileName, blob);
           } else if (dirHandle) {
-            const fichero = await dirHandle.getFileHandle(nombre, { create: true });
+            const fichero = await dirHandle.getFileHandle(it.fileName, { create: true });
             const escritura = await fichero.createWritable();
             await escritura.write(blob);
             await escritura.close();
           }
         } catch (e) {
-          console.error(`[descarga en paquete] ${doc.id}:`, e);
-          fallos.push(doc.id);
+          console.error(`[descarga en paquete] ${it.id}:`, e);
+          fallos.push(it.id);
         }
         hechos++;
         setProgress({ done: hechos, total: lote.length });
@@ -203,7 +224,7 @@ export default function BulkDownloadModal({
             const url = URL.createObjectURL(contenido);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `DeCAs_${new Date().toISOString().slice(0, 10)}.zip`;
+            a.download = nombreZip;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -224,11 +245,11 @@ export default function BulkDownloadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Descargar DeCAs en paquete">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={labels.titulo}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 shrink-0">
           <div>
-            <h3 className="text-lg font-bold text-slate-800">Descargar DeCAs en paquete</h3>
+            <h3 className="text-lg font-bold text-slate-800">{labels.titulo}</h3>
             <p className="text-xs text-slate-500">Filtra, marca los que quieras y elige dónde guardarlos.</p>
           </div>
           <button onClick={onClose} disabled={running} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg disabled:opacity-40" title="Cerrar">
@@ -239,13 +260,15 @@ export default function BulkDownloadModal({
         <div className="px-6 py-3 border-b border-slate-100 flex flex-col sm:flex-row flex-wrap gap-2 shrink-0">
           <input
             type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por ID, transportista, matrícula o título..."
+            placeholder={labels.buscar}
             className="flex-1 min-w-[200px] px-3 py-2 border rounded-lg text-sm text-slate-900"
           />
-          <select value={status} onChange={e => setStatus(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
-            <option value="">Todos los estados</option>
-            {Object.entries(STATUS_LABEL).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
-          </select>
+          {statusOptions && (
+            <select value={status} onChange={e => setStatus(e.target.value)} className="px-3 py-2 border rounded-lg text-sm bg-white text-slate-900">
+              <option value="">Todos los estados</option>
+              {Object.entries(statusOptions).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
+            </select>
+          )}
           <div className="flex items-center gap-2">
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="px-3 py-2 border rounded-lg text-sm text-slate-900" />
             <span className="text-slate-400 text-sm">a</span>
@@ -256,10 +279,10 @@ export default function BulkDownloadModal({
         <div className="px-6 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs shrink-0">
           <label className="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
             <input type="checkbox" checked={todosMarcados} onChange={alternarTodos} disabled={seleccionables.length === 0 || running} className="w-4 h-4" />
-            Seleccionar todos los que se ven ({seleccionables.length})
+            Seleccionar tod{os} l{os} que se ven ({seleccionables.length})
           </label>
           <span className="text-slate-500">
-            <strong className="text-slate-800">{seleccionados.length}</strong> seleccionados
+            <strong className="text-slate-800">{seleccionados.length}</strong> seleccionad{os}
             {selected.size > 0 && (
               <button onClick={() => setSelected(new Set())} disabled={running} className="ml-3 font-semibold text-blue-600 hover:underline disabled:opacity-40">Quitar selección</button>
             )}
@@ -268,30 +291,34 @@ export default function BulkDownloadModal({
 
         <div className="flex-1 overflow-y-auto min-h-[160px]">
           {filtrados.length === 0 ? (
-            <p className="p-10 text-center text-sm text-slate-400">Ningún DeCA coincide con esos filtros.</p>
+            <p className="p-10 text-center text-sm text-slate-400">{fem ? 'Ninguna' : 'Ningún'} {labels.singular} coincide con esos filtros.</p>
           ) : (
             <ul className="divide-y divide-slate-100 text-sm">
-              {filtrados.map(doc => {
-                const sinPdf = !doc.pdf_storage_path;
+              {filtrados.map(it => {
+                const sinPdf = !it.path;
                 return (
-                  <li key={doc.id}>
+                  <li key={it.id}>
                     <label className={`flex items-center gap-3 px-6 py-2.5 ${sinPdf ? 'opacity-50' : 'cursor-pointer hover:bg-slate-50'}`}>
                       <input
                         type="checkbox" className="w-4 h-4 shrink-0"
-                        checked={selected.has(doc.id) && !sinPdf}
+                        checked={selected.has(it.id) && !sinPdf}
                         disabled={sinPdf || running}
-                        onChange={() => alternar(doc.id)}
+                        onChange={() => alternar(it.id)}
                       />
-                      <span className="font-mono font-bold text-blue-900 w-44 shrink-0">{doc.id}</span>
+                      <span className="font-mono font-bold text-blue-900 w-44 shrink-0">{it.id}</span>
                       <span className="flex-1 min-w-0 truncate text-slate-700">
-                        {doc.carrier?.companyName || 'Sin asignar'}
-                        <span className="text-slate-400"> · {doc.route?.originMain} → {doc.route?.destinationMain}</span>
+                        {it.title}
+                        {it.detail && <span className="text-slate-400"> · {it.detail}</span>}
                       </span>
                       <span className="hidden sm:block text-slate-500 whitespace-nowrap">
-                        {doc.route?.plannedStartDate ? new Date(doc.route.plannedStartDate).toLocaleDateString('es-ES') : '—'}
+                        {it.date ? new Date(it.date).toLocaleDateString('es-ES') : '—'}
                       </span>
-                      <span className="hidden sm:block text-xs text-slate-500 w-32 truncate">{STATUS_LABEL[doc.status] ?? doc.status}</span>
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200">v{doc.version}.0</span>
+                      {statusOptions && (
+                        <span className="hidden sm:block text-xs text-slate-500 w-32 truncate">{(it.statusKey && statusOptions[it.statusKey]) ?? it.statusKey}</span>
+                      )}
+                      {it.badge && (
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-xs font-bold border border-slate-200">{it.badge}</span>
+                      )}
                       {sinPdf && <span className="text-[10px] text-amber-600 font-semibold">Sin PDF guardado</span>}
                     </label>
                   </li>
@@ -342,7 +369,7 @@ export default function BulkDownloadModal({
             </p>
           )}
           {modo === 'zip' && seleccionados.length > MAX_ZIP && (
-            <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" />Para un ZIP, selecciona como máximo {MAX_ZIP} DeCAs a la vez (o usa la opción de carpeta).</p>
+            <p className="text-xs text-amber-700 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" />Para un ZIP, selecciona como máximo {MAX_ZIP} {labels.plural} a la vez (o usa la opción de carpeta).</p>
           )}
           {modo === 'carpeta' && !dirHandle && seleccionados.length > 0 && !running && (
             <p className="text-xs text-slate-500">Elige primero la carpeta donde guardar los PDFs.</p>
@@ -364,10 +391,12 @@ export default function BulkDownloadModal({
               {resultado.fallos.length ? <AlertTriangle className="w-4 h-4 shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
               <div>
                 <p className="font-semibold">
-                  {resultado.ok > 0 ? `${resultado.ok} DeCA${resultado.ok === 1 ? '' : 's'} guardado${resultado.ok === 1 ? '' : 's'} en ${resultado.destino}.` : 'No se ha podido descargar ningún DeCA.'}
+                  {resultado.ok > 0
+                    ? `${resultado.ok} ${resultado.ok === 1 ? labels.singular : labels.plural} guardad${o}${resultado.ok === 1 ? '' : 's'} en ${resultado.destino}.`
+                    : `No se ha podido descargar ${fem ? 'ninguna' : 'ningún'} ${labels.singular}.`}
                 </p>
                 {resultado.fallos.length > 0 && (
-                  <p className="mt-0.5">No se pudieron descargar: {resultado.fallos.join(', ')}. Vuelve a intentarlo con esos.</p>
+                  <p className="mt-0.5">No se pudieron descargar: {resultado.fallos.join(', ')}. Vuelve a intentarlo con es{os}.</p>
                 )}
               </div>
             </div>
@@ -382,7 +411,7 @@ export default function BulkDownloadModal({
               className="px-5 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {running ? 'Descargando...' : `Descargar ${seleccionados.length || ''} ${seleccionados.length === 1 ? 'DeCA' : 'DeCAs'}`}
+              {running ? 'Descargando...' : `Descargar ${seleccionados.length || ''} ${seleccionados.length === 1 ? labels.singular : labels.plural}`}
             </button>
           </div>
         </div>

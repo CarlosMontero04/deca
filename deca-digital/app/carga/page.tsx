@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../utils/supabase/client';
-import { LogOut, FileText, PlusCircle, Download, Eye, FileEdit, MessageCircle, Mail, Home, UserCircle } from 'lucide-react';
+import { LogOut, FileText, PlusCircle, Download, Eye, FileEdit, MessageCircle, Mail, Home, UserCircle, Package } from 'lucide-react';
+import BulkDownloadModal, { type BulkItem } from '../components/BulkDownloadModal';
 import { notifyCarrierOrden } from '../utils/notifyCarrierOrden';
 import { useOrgLogo } from '../hooks/useOrgLogo';
 
@@ -21,6 +22,10 @@ export default function PanelOrdenesCarga() {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // Rol real dentro de la organización: la descarga en paquete es solo para administradores,
+  // igual que en el panel de DeCAs.
+  const [isOrgAdmin, setIsOrgAdmin] = useState(false);
+  const [showBulkDownload, setShowBulkDownload] = useState(false);
 
   const handleQuickNotify = async (orden: any, method: 'telefono' | 'email') => {
     setNotifyingId(orden.id);
@@ -60,9 +65,10 @@ export default function PanelOrdenesCarga() {
       // aaaa@gmail.com (o cualquier usuario sin org) queda fuera.
       const { data: membership } = await supabase
         .from('organization_members')
-        .select('org_id')
+        .select('org_id, role')
         .single();
       if (!membership?.org_id) { router.push('/'); return; }
+      setIsOrgAdmin(membership.role === 'admin');
 
       const { data } = await supabase
         .from('ordenes_carga')
@@ -155,6 +161,15 @@ export default function PanelOrdenesCarga() {
             <p className="text-sm text-slate-500">Encargos a transportistas subcontratados</p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {isOrgAdmin && (
+              <button
+                onClick={() => setShowBulkDownload(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+              >
+                <Package className="w-5 h-5" />
+                Descargar órdenes
+              </button>
+            )}
             <button
               onClick={() => router.push('/carga/nueva')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
@@ -270,6 +285,35 @@ export default function PanelOrdenesCarga() {
           </div>
         )}
       </div>
+
+      {isOrgAdmin && showBulkDownload && (
+        <BulkDownloadModal
+          items={ordenes.map((o): BulkItem => ({
+            id: o.id,
+            fileName: `${o.id}.pdf`,
+            path: o.pdf_storage_path,
+            title: o.carrier_name || 'Sin asignar',
+            detail: o.origen || o.destino ? `${o.origen ?? ''} → ${o.destino ?? ''}` : undefined,
+            date: o.fecha,
+            searchText: [o.id, o.carrier_name, o.origen, o.destino].filter(Boolean).join(' ').toLowerCase(),
+          }))}
+          supabase={supabase}
+          bucket="ordenes-carga-pdf"
+          publicBucket={false}
+          labels={{
+            titulo: 'Descargar órdenes de carga en paquete',
+            singular: 'orden',
+            plural: 'órdenes',
+            femenino: true,
+            buscar: 'Buscar por Nº orden, transportista, origen o destino...',
+            zipPrefijo: 'Ordenes_de_carga',
+          }}
+          onClose={() => setShowBulkDownload(false)}
+          initialSearch={searchQuery}
+          initialDateFrom={dateFrom}
+          initialDateTo={dateTo}
+        />
+      )}
     </div>
   );
 }

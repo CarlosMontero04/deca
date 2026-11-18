@@ -31,7 +31,7 @@ export interface OrdenCarga {
 // reproducidas de vuestra plantilla original.
 const CONDICIONES = [
   'Facturar siempre peso descargado en destino.',
-  'Forma de pago: pagare a 60 dias fecha recepción factura y albaranes originales.',
+  'Forma de pago: confirming o pagaré a 60 días fecha recepción factura',
   'Para el pago de la factura, es de obligado cumplimiento nos remitan certificados de estar al corriente con Hacienda y Seguridad Social.',
   'La factura se aceptará con la carta de porte, CMR, originales o albaranes debidamente firmados y sellados, incluyendo DNI del responsable de la recepción de la mercancía.',
   'El conductor deberá realizar el control de la carga y descarga de la mercancía asegurando la correcta colocación y estabilidad de esta y tiene la obligación de examinar con detalle la mercancía en el momento que vaya a cargar el vehículo, así mismo deberá informar a Operpal en el mismo momento de la carga, si observara alguna anomalía en la misma.',
